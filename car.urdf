@@ -11,13 +11,13 @@
   <link name="base_link">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.15"/>
+        <cylinder length="0.01" radius="0.0825"/>
       </geometry>
       <material name="pink"/>
     </visual>
     <collision>
       <geometry>
-        <cylinder length="0.01" radius="0.15"/>
+        <cylinder length="0.01" radius="0.0825"/>
       </geometry>
     </collision>
     <inertial>
@@ -30,13 +30,13 @@
   <link name="wheel_l">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.05"/>
+        <cylinder length="0.008" radius="0.035"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <cylinder length="0.01" radius="0.05"/>
+        <cylinder length="0.008" radius="0.035"/>
       </geometry>
     </collision>
     <!-- contact taken from racecar_differential.urdf -->
@@ -55,20 +55,20 @@
   <joint name="wheel_l_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_l"/>
-    <origin rpy="0 1.57 0" xyz="0.165 0 0"/>
+    <origin rpy="0 1.57 0" xyz="0.091 0 0.01"/>
     <axis xyz="0 0 -1"/>
   </joint>
 
   <link name="wheel_r">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.05"/>
+        <cylinder length="0.008" radius="0.035"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <cylinder length="0.01" radius="0.05"/>
+        <cylinder length="0.008" radius="0.035"/>
       </geometry>
     </collision>
     <!-- contact taken from racecar_differential.urdf -->
@@ -87,20 +87,20 @@
   <joint name="wheel_r_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_r"/>
-    <origin rpy="0 1.57 0" xyz="-0.165 0 0"/>
+    <origin rpy="0 1.57 0" xyz="-0.091 0 0.01"/>
     <axis xyz="0 0 -1"/>
   </joint>
 
   <link name="wheel_rear">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.02"/>
+        <cylinder length="0.01" radius="0.009"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <cylinder length="0.01" radius="0.02"/>
+        <cylinder length="0.01" radius="0.009"/>
       </geometry>
     </collision>
     <contact>
@@ -118,20 +118,20 @@
   <joint name="wheel_rear_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_rear"/>
-    <origin rpy="0 1.57 0" xyz="0 -0.1 -0.03"/>
+    <origin rpy="0 1.57 0" xyz="0 -0.05 -0.0152"/>
     <axis xyz="0 0 -1"/>
   </joint>
 
   <link name="attached_load">
     <visual>
       <geometry>
-        <box size="0.1 0.15 0.05"/>
+        <box size="0.05 0.075 0.025"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.1 0.15 0.05"/>
+        <box size="0.05 0.075 0.025"/>
       </geometry>
     </collision>
     <inertial>
@@ -143,7 +143,7 @@
   <joint name="attached_load_joint" type="fixed">
     <parent link="base_link"/>
     <child link="attached_load"/>
-    <origin rpy="0 0 0" xyz="0 -0.05 0.025"/>
+    <origin rpy="0 0 0" xyz="0 -0.025 0.0125"/>
   </joint>
 
 

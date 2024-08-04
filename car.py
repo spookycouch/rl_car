@@ -19,7 +19,7 @@ def get_homogeneous_transformation_from_pose(position, orientation):
 def create_sphere():
     visual_id = p.createVisualShape(
         shapeType=p.GEOM_SPHERE,
-        radius = 0.05,
+        radius = 0.025,
         rgbaColor=(1,0,0,1),
     )
     multibody_id = p.createMultiBody(baseVisualShapeIndex=visual_id)
@@ -49,14 +49,14 @@ class CarEnv(gym.Env):
         p.setGravity(0, 0, -10)
 
     def reset(self, seed=None, options=None):
-        new_position_xy = np.random.uniform(-2, 2, (2))
+        new_position_xy = np.random.uniform(-1, 1, (2))
         self.__set_new_goal(new_position_xy)
 
         observation = self.__get_observation()
         return observation
 
     def step(self, action):
-        forces = action/10.0
+        forces = action/20.0
 
         for _ in range(24):
             p.setJointMotorControl2(
@@ -81,7 +81,7 @@ class CarEnv(gym.Env):
         delta_position = observation[:3]
         reward = self.__get_reward(delta_position)
 
-        done = reward > -0.1
+        done = reward > -0.05
         truncated = False
         info = {}
 
