@@ -94,13 +94,13 @@
   <link name="wheel_rear">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.024"/>
+        <cylinder length="0.01" radius="0.02"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <cylinder length="0.01" radius="0.024"/>
+        <cylinder length="0.01" radius="0.02"/>
       </geometry>
     </collision>
     <contact>
@@ -118,7 +118,7 @@
   <joint name="wheel_rear_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_rear"/>
-    <origin rpy="0 1.57 0" xyz="0 -0.1 -0.024"/>
+    <origin rpy="0 1.57 0" xyz="0 -0.1 -0.03"/>
     <axis xyz="0 0 -1"/>
   </joint>
 </robot>
