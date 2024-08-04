@@ -41,7 +41,7 @@
     </collision>
     <!-- contact taken from racecar_differential.urdf -->
     <contact>
-      <lateral_friction value=".3"/>
+      <lateral_friction value="1.0"/>
       <rolling_friction value="0.0"/>
       <stiffness value="300000"/>
       <damping value="1000"/>
@@ -73,7 +73,7 @@
     </collision>
     <!-- contact taken from racecar_differential.urdf -->
     <contact>
-      <lateral_friction value=".3"/>
+      <lateral_friction value="1.0"/>
       <rolling_friction value="0.0"/>
       <stiffness value="300000"/>
       <damping value="1000"/>
@@ -121,4 +121,30 @@
     <origin rpy="0 1.57 0" xyz="0 -0.1 -0.03"/>
     <axis xyz="0 0 -1"/>
   </joint>
+
+  <link name="attached_load">
+    <visual>
+      <geometry>
+        <box size="0.1 0.15 0.05"/>
+      </geometry>
+      <material name="darkgrey"/>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.1 0.15 0.05"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="1.0"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+  <joint name="attached_load_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="attached_load"/>
+    <origin rpy="0 0 0" xyz="0 -0.05 0.025"/>
+  </joint>
+
+
 </robot>
