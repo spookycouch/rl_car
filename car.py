@@ -34,7 +34,7 @@ class CarEnv(gym.Env):
     def __init__(self, parameters: Parameters):
         self.__parameters = parameters
 
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32)
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
         p.connect(p.GUI)
@@ -77,7 +77,10 @@ class CarEnv(gym.Env):
                 time.sleep(1./240.)
 
         observation = self.__get_observation()
-        reward = self.__get_reward(observation)
+
+        delta_position = observation[:3]
+        reward = self.__get_reward(delta_position)
+
         done = reward > -0.1
         truncated = False
         info = {}
@@ -119,11 +122,21 @@ class CarEnv(gym.Env):
         goal_position, _ = p.getBasePositionAndOrientation(self.__goal)
         world_T_goal = get_homogeneous_transformation_from_pose(goal_position, [0,0,0,1])
 
+        wheel_velocities = np.array([
+            p.getJointState(self.__car, 0)[1],
+            p.getJointState(self.__car, 1)[1],
+        ], dtype=np.float32)
+        wheel_velocities = wheel_velocities * 0.01
+
         # car_T_world @ world_T_goal = car_T_goal
         car_T_goal = np.linalg.inv(world_T_car) @ world_T_goal
         delta_position = car_T_goal[:3,3]
 
-        return delta_position
+        observation =  np.concatenate([
+            delta_position,
+            wheel_velocities,
+        ], dtype=np.float32)
+        return observation
 
     def __get_reward(self, delta_position):
         reward = -np.linalg.norm(delta_position)
@@ -131,7 +144,8 @@ class CarEnv(gym.Env):
 
 
 if __name__ == "__main__":
-    parameters = CarEnv.Parameters(real_time=False)
-    env = CarEnv()
+    parameters = CarEnv.Parameters(real_time=True)
+    env = CarEnv(parameters)
     while 1:
-        env.step(0.5)
+        forces = np.array([0.5, 0.5], dtype=np.float32)
+        env.step(forces)
