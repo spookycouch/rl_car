@@ -1,5 +1,5 @@
 #include <ESP32Encoder.h> // https://github.com/madhephaestus/ESP32Encoder.git 
-#include <PID_v1.h>
+#include "motor.h"
  
 #define LEFT_ENC_A 15
 #define LEFT_ENC_B 2 
@@ -9,115 +9,76 @@
 
 #define RIGHT_ENC_A 14
 #define RIGHT_ENC_B 12 
-#define RIGHT_PWM 32
-#define RIGHT_DIR 35
-#define RIGHT_SLP 34
+#define RIGHT_PWM 27
+#define RIGHT_DIR 26
+#define RIGHT_SLP 25
 
+double pid_k_proportional = 1.0;
+double pid_k_integral = 35;
+double pid_k_derivative = 0.1;
+long encoder_cpr = 1440;
+double max_velocity_rad = 2 * M_PI;
 
-unsigned long time_last;
-unsigned long time_last_print;
-long left_position, left_position_last, right_position, right_position_last;
+Motor* left_motor;
+Motor* right_motor;
 ESP32Encoder left_encoder, right_encoder;
 
-double velocity_left;
-double velocity_right;
-double pid_target, pid_left_out, pid_right_out;
-double Kp=1.0, Ki=35, Kd=0.1;
-PID pid_left(&velocity_left, &pid_left_out, &pid_target, Kp, Ki, Kd, DIRECT);
-PID pid_right(&velocity_right, &pid_right_out, &pid_target, Kp, Ki, Kd, DIRECT);
+
 
 
 void setup () { 
   ESP32Encoder::useInternalWeakPullResistors = puType::up;
+  left_encoder.attachFullQuad(LEFT_ENC_A, LEFT_ENC_B);
+  left_encoder.setCount(0);
+  right_encoder.attachFullQuad(LEFT_ENC_A, LEFT_ENC_B);
+  right_encoder.setCount(0);
 
-  left_encoder.attachFullQuad ( LEFT_ENC_A, LEFT_ENC_B );
-  left_encoder.setCount ( 0 );
+  
+  left_motor = new Motor(
+    pid_k_proportional,
+    pid_k_integral,
+    pid_k_derivative,
+    LEFT_PWM,
+    LEFT_DIR,
+    LEFT_SLP,
+    left_encoder,
+    encoder_cpr,
+    max_velocity_rad
+  );
 
-  right_encoder.attachFullQuad ( RIGHT_ENC_A, RIGHT_ENC_B );
-  right_encoder.setCount ( 0 );
+  right_motor = new Motor(
+    pid_k_proportional,
+    pid_k_integral,
+    pid_k_derivative,
+    RIGHT_PWM,
+    RIGHT_DIR,
+    RIGHT_SLP,
+    right_encoder,
+    encoder_cpr,
+    max_velocity_rad
+  );
 
-  pinMode(LEFT_SLP, OUTPUT);
-  pinMode(LEFT_PWM, OUTPUT);
-  pinMode(LEFT_DIR, OUTPUT);
-
-  pinMode(RIGHT_SLP, OUTPUT);
-  pinMode(RIGHT_PWM, OUTPUT);
-  pinMode(RIGHT_DIR, OUTPUT);
-
-  pid_target = M_PI;
-  pid_left.SetMode(AUTOMATIC);
-  pid_right.SetMode(AUTOMATIC);
-
-
-  time_last = millis();
-  time_last_print = millis();
-
-  Serial.begin ( 115200 );
-}
-
-void update_readings() {
-  time_last = millis();
-  right_position_last = right_position;
-  left_position_last = left_position;
+  Serial.begin(115200);
 }
 
 void loop () {
-  pid_target = sin(millis()/1000.0) * M_PI + M_PI;
-  left_position = left_encoder.getCount();
-  right_position = right_encoder.getCount();
+  double target_velocity_rad = sin(millis()/1000.0) * 0.5 * M_PI + M_PI;
+  left_motor->set_target_velocity(target_velocity_rad);
+  left_motor->update();
+  right_motor->set_target_velocity(target_velocity_rad);
+  right_motor->update();
 
-  float delta_time_s = (millis() - time_last) / 1000.0;
-  long delta_right_position = right_position - right_position_last;
-  long delta_left_position = left_position - left_position_last;
-  float delta_right_position_rad = (delta_right_position/1440.0) * 2 * M_PI;
-  float delta_left_position_rad = (delta_left_position/1440.0) * 2 * M_PI;
-
-  velocity_left = delta_left_position_rad/delta_time_s;
-  velocity_right = delta_right_position_rad/delta_time_s;
-
-  pid_left.Compute();
-  pid_right.Compute();
-
-  Serial.print("left_count:");
-  Serial.print(velocity_left);
-  // Serial.print(left_position / 1440);
+  double left_velocity_rad = left_motor->get_velocity();
+  double right_velocity_rad = right_motor->get_velocity();
+  Serial.print("left_motor:");
+  Serial.print(left_velocity_rad);
   Serial.print(",");
-  Serial.print("right_velocity:");
-  Serial.print(velocity_right);
-  // Serial.print(",");
-  // Serial.print("pid_output:");
-  // Serial.print(pid_out);
+  Serial.print("right_motor:");
+  Serial.print(right_velocity_rad);
   Serial.print(",");
-  Serial.print("pid_target:");
-  Serial.print(pid_target);
+  Serial.print("target:");
+  Serial.print(target_velocity_rad);
   Serial.println();
-  // Serial.print(right_position / 1440);
-  time_last_print = millis();
 
-  digitalWrite(LEFT_SLP, HIGH);  // read the input pin
-  digitalWrite(LEFT_DIR, LOW);  // read the input pin
-  analogWrite(LEFT_PWM, min(63, (int)pid_left_out)); // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-
-  // digitalWrite(RIGHT_SLP, HIGH);  // read the input pin
-  // digitalWrite(RIGHT_DIR, LOW);  // read the input pin
-  analogWrite(RIGHT_PWM, min(63, (int)pid_right_out)); // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-
-  update_readings();
   delay(20);
 } 
-
-// int ledPin = 16;      // LED connected to digital pin 9
-// int analogPin = 17;   // potentiometer connected to analog pin 3
-
-// void setup() {
-//   Serial.begin(9600);
-//   pinMode(ledPin, OUTPUT);  // sets the pin as output
-//   pinMode(analogPin, OUTPUT);  // sets the pin as output
-// }
-
-// void loop() {
-//   Serial.println("going");
-//   digitalWrite(ledPin, HIGH);  // read the input pin
-//   analogWrite(analogPin, 127); // analogRead values go from 0 to 1023, analogWrite values from 0 to 255
-//   delay(50);
-// }
