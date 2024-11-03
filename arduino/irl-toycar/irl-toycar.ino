@@ -30,7 +30,7 @@ void setup () {
   ESP32Encoder::useInternalWeakPullResistors = puType::up;
   left_encoder.attachFullQuad(LEFT_ENC_A, LEFT_ENC_B);
   left_encoder.setCount(0);
-  right_encoder.attachFullQuad(LEFT_ENC_A, LEFT_ENC_B);
+  right_encoder.attachFullQuad(RIGHT_ENC_A, RIGHT_ENC_B);
   right_encoder.setCount(0);
 
   
