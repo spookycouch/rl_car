@@ -62,7 +62,7 @@ void setup () {
 }
 
 void loop () {
-  double target_velocity_rad = sin(millis()/1000.0) * 0.5 * M_PI + M_PI;
+  double target_velocity_rad = sin(millis()/1000.0) * M_PI;
   left_motor->set_target_velocity(target_velocity_rad);
   left_motor->update();
   right_motor->set_target_velocity(target_velocity_rad);

@@ -3,6 +3,8 @@
 
 #include <PID_v1.h>
 
+#define PID_MIN_OUTPUT -127.0
+#define PID_MAX_OUTPUT 127.0
 
 class Motor {
   private:
@@ -54,6 +56,7 @@ class Motor {
         DIRECT
       );
       pid_controller->SetMode(AUTOMATIC);
+      pid_controller->SetOutputLimits(PID_MIN_OUTPUT, PID_MAX_OUTPUT);
 
       this->gpio_pwm = gpio_pwm;
       this->gpio_dir = gpio_dir;
@@ -96,10 +99,16 @@ class Motor {
 
       pid_controller->Compute();
 
+      // set direction
+      if (pid_output < 0) {
+        digitalWrite(gpio_dir, HIGH);
+      }
+      else {
+        digitalWrite(gpio_dir, LOW);
+      }
       digitalWrite(gpio_slp, HIGH);
-      digitalWrite(gpio_dir, LOW);
-      analogWrite(gpio_pwm, pid_output);
-        
+      analogWrite(gpio_pwm, abs(pid_output)); // pwm output
+
       encoder.setCount(0);
       prev_encoder_position = encoder.getCount();
       prev_time_ms = millis();
