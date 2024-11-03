@@ -61,7 +61,8 @@ void update_readings() {
   left_position_last = left_position;
 }
 
-void loop () {    
+void loop () {
+  pid_target = sin(millis()/1000.0) * M_PI + M_PI;
   left_position = left_encoder.getCount();
   right_position = right_encoder.getCount();
 
