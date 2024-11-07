@@ -1,17 +1,17 @@
-#include <ESP32Encoder.h> // https://github.com/madhephaestus/ESP32Encoder.git 
+#include <Encoder.h>
 #include "motor.h"
  
-#define LEFT_ENC_A 15
-#define LEFT_ENC_B 2 
-#define LEFT_PWM 21
-#define LEFT_DIR 22
-#define LEFT_SLP 23
+#define LEFT_ENC_A 5
+#define LEFT_ENC_B 6
+#define LEFT_PWM 11
+#define LEFT_DIR 10
+#define LEFT_SLP 8
 
-#define RIGHT_ENC_A 14
-#define RIGHT_ENC_B 12 
-#define RIGHT_PWM 27
-#define RIGHT_DIR 26
-#define RIGHT_SLP 25
+#define RIGHT_ENC_A 21
+#define RIGHT_ENC_B 22
+#define RIGHT_PWM 20
+#define RIGHT_DIR 19
+#define RIGHT_SLP 18
 
 double pid_k_proportional = 1.0;
 double pid_k_integral = 35;
@@ -21,18 +21,15 @@ double max_velocity_rad = 2 * M_PI;
 
 Motor* left_motor;
 Motor* right_motor;
-ESP32Encoder left_encoder, right_encoder;
+Encoder* left_encoder;
+Encoder* right_encoder;
 
 
-
-
-void setup () { 
-  ESP32Encoder::useInternalWeakPullResistors = puType::up;
-  left_encoder.attachFullQuad(LEFT_ENC_A, LEFT_ENC_B);
-  left_encoder.setCount(0);
-  right_encoder.attachFullQuad(RIGHT_ENC_A, RIGHT_ENC_B);
-  right_encoder.setCount(0);
-
+void setup () {
+  left_encoder = new Encoder(LEFT_ENC_A, LEFT_ENC_B);
+  right_encoder = new Encoder(RIGHT_ENC_A, RIGHT_ENC_B);
+  left_encoder->write(0);
+  right_encoder->write(0);
   
   left_motor = new Motor(
     pid_k_proportional,

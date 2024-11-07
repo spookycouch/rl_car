@@ -27,7 +27,7 @@ class Motor {
     double max_velocity_rad;
 
 
-    ESP32Encoder encoder;
+    Encoder* encoder;
     // number of encoder counts for one revolution of the wheel
     unsigned long encoder_cpr;
     // encoder measurements
@@ -42,7 +42,7 @@ class Motor {
       int gpio_pwm,
       int gpio_dir,
       int gpio_slp,
-      ESP32Encoder encoder,
+      Encoder* encoder,
       unsigned long encoder_cpr,
       double max_velocity_rad
     ) {
@@ -71,7 +71,7 @@ class Motor {
       this->encoder_cpr = encoder_cpr;
       this->max_velocity_rad = max_velocity_rad;
 
-      prev_encoder_position = encoder.getCount();
+      prev_encoder_position = encoder->read();
       this->prev_time_ms = millis();
     }
 
@@ -88,7 +88,7 @@ class Motor {
     }
 
     void update() {
-      long delta_position = encoder.getCount() - prev_encoder_position;
+      long delta_position = encoder->read() - prev_encoder_position;
       float delta_position_rad = ((float)delta_position/encoder_cpr) * 2 * M_PI;
       float delta_time_s = (millis() - prev_time_ms) / 1000.0;
       if (delta_time_s > 0) {
@@ -109,8 +109,8 @@ class Motor {
       digitalWrite(gpio_slp, HIGH);
       analogWrite(gpio_pwm, abs(pid_output)); // pwm output
 
-      encoder.setCount(0);
-      prev_encoder_position = encoder.getCount();
+      encoder->write(0);
+      prev_encoder_position = encoder->read();
       prev_time_ms = millis();
     }
 };
