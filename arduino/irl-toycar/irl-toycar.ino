@@ -1,4 +1,8 @@
+#include <BLEDevice.h>
+#include <BLEUtils.h>
+#include <BLEServer.h>
 #include <Encoder.h>
+#include <stdexcept>
 #include "motor.h"
  
 #define LEFT_ENC_A 5
@@ -13,6 +17,9 @@
 #define RIGHT_DIR 19
 #define RIGHT_SLP 18
 
+#define SERVICE_UUID "ac2f617f-2379-490c-984a-3cd3fb36de87"
+#define COMMAND_CHARACTERISTIC_UUID "371cfeb2-f84c-42c0-8e54-01d7058675c0"
+
 double pid_k_proportional = 1.0;
 double pid_k_integral = 35;
 double pid_k_derivative = 0.1;
@@ -23,6 +30,12 @@ Motor* left_motor;
 Motor* right_motor;
 Encoder* left_encoder;
 Encoder* right_encoder;
+
+BLEServer* ble_server;
+BLEService* ble_service;
+BLECharacteristic* command_characteristic;
+unsigned long last_request_millis;
+unsigned long timeout_millis = 1000;
 
 
 void setup () {
@@ -56,13 +69,36 @@ void setup () {
   );
 
   Serial.begin(115200);
+
+  BLEDevice::init("toycar");
+  ble_server = BLEDevice::createServer();
+  ble_service = ble_server->createService(SERVICE_UUID);
+  command_characteristic = ble_service->createCharacteristic(COMMAND_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_WRITE);
+  command_characteristic->setValue("0.0 0.0");
+  ble_service->start();
+  BLEAdvertising *ble_advertising = BLEDevice::getAdvertising();
+  ble_advertising->addServiceUUID(SERVICE_UUID);
+  ble_advertising->setScanResponse(true);
+  ble_advertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
+  ble_advertising->setMinPreferred(0x12);
+  BLEDevice::startAdvertising();
 }
 
 void loop () {
-  double target_velocity_rad = sin(millis()/1000.0) * M_PI;
-  left_motor->set_target_velocity(target_velocity_rad);
+  double left_target_velocity_rad = 0.0;
+  double right_target_velocity_rad = 0.0;
+  try {
+    std::string command = command_characteristic->getValue().c_str();
+    size_t next_index;
+    left_target_velocity_rad = std::stod(command, &next_index);
+    right_target_velocity_rad = std::stod(command.substr(next_index));
+    left_motor->set_target_velocity(left_target_velocity_rad);
+    right_motor->set_target_velocity(right_target_velocity_rad);
+  } catch(const std::invalid_argument& err) {
+    Serial.printf("Invalid argument: %s, skipping. \n", err.what());
+  }
+
   left_motor->update();
-  right_motor->set_target_velocity(target_velocity_rad);
   right_motor->update();
 
   double left_velocity_rad = left_motor->get_velocity();
@@ -73,8 +109,11 @@ void loop () {
   Serial.print("right_motor:");
   Serial.print(right_velocity_rad);
   Serial.print(",");
-  Serial.print("target:");
-  Serial.print(target_velocity_rad);
+  Serial.print("left_target:");
+  Serial.print(left_target_velocity_rad);
+  Serial.print(",");
+  Serial.print("right_target:");
+  Serial.print(right_target_velocity_rad);
   Serial.println();
 
   delay(20);
