@@ -106,8 +106,16 @@ class Motor {
       else {
         digitalWrite(gpio_dir, LOW);
       }
+
+      // set sleep pin
       digitalWrite(gpio_slp, HIGH);
-      analogWrite(gpio_pwm, abs(pid_output)); // pwm output
+      
+      // set pwm output
+      if (this->target_velocity_rad != 0) {
+        analogWrite(gpio_pwm, abs(pid_output));
+      } else {
+        analogWrite(gpio_pwm, 0.0);
+      }
 
       encoder->write(0);
       prev_encoder_position = encoder->read();
