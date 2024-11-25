@@ -17,14 +17,14 @@
 #define RIGHT_DIR 19
 #define RIGHT_SLP 18
 
-#define SERVICE_UUID "ac2f617f-2379-490c-984a-3cd3fb36de87"
-#define COMMAND_CHARACTERISTIC_UUID "371cfeb2-f84c-42c0-8e54-01d7058675c0"
+#define SERVICE_UUID "a74f372c-6a91-4638-85a8-9362f691f964"
+#define COMMAND_CHARACTERISTIC_UUID "eee4879a-80a8-4d33-af74-b05826ee658f"
 
 double pid_k_proportional = 1.0;
 double pid_k_integral = 35;
 double pid_k_derivative = 0.1;
 long encoder_cpr = 1440;
-double max_velocity_rad = 2 * M_PI;
+double max_velocity_rad = 4 * M_PI;
 
 Motor* left_motor;
 Motor* right_motor;
@@ -73,7 +73,7 @@ void setup () {
   BLEDevice::init("toycar");
   ble_server = BLEDevice::createServer();
   ble_service = ble_server->createService(SERVICE_UUID);
-  command_characteristic = ble_service->createCharacteristic(COMMAND_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_WRITE);
+  command_characteristic = ble_service->createCharacteristic(COMMAND_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_WRITE_NR);
   command_characteristic->setValue("0.0 0.0");
   ble_service->start();
   BLEAdvertising *ble_advertising = BLEDevice::getAdvertising();

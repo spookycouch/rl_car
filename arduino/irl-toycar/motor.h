@@ -80,7 +80,7 @@ class Motor {
     } 
 
     void set_target_velocity(double velocity_rad) {
-      this->target_velocity_rad = min(max_velocity_rad, velocity_rad);
+      this->target_velocity_rad = std::clamp(velocity_rad, -max_velocity_rad, max_velocity_rad);
     }
 
     double get_velocity() {
