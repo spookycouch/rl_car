@@ -41,7 +41,7 @@ class CarEnv(gym.Env):
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.__car = p.loadURDF("car.urdf", basePosition=(0,0,0.05))
-        self.__enable_force_control()
+        # self.__enable_force_control()
 
         self.__goal = create_sphere()
         self.__set_new_goal([0,1])
@@ -49,27 +49,27 @@ class CarEnv(gym.Env):
         p.setGravity(0, 0, -10)
 
     def reset(self, seed=None, options=None):
-        new_position_xy = np.random.uniform(-1, 1, (2))
+        new_position_xy = np.random.uniform(0.0, 1.0, (2))
         self.__set_new_goal(new_position_xy)
 
         observation = self.__get_observation()
         return observation
 
     def step(self, action):
-        forces = action/20.0
+        target_velocities = action*4*np.pi
 
         for _ in range(24):
             p.setJointMotorControl2(
                 self.__car,
                 0,
-                p.TORQUE_CONTROL,
-                force=forces[0]
+                p.VELOCITY_CONTROL,
+                targetVelocity=target_velocities[0]
             )
             p.setJointMotorControl2(
                 self.__car,
                 1,
-                p.TORQUE_CONTROL,
-                force=forces[1]
+                p.VELOCITY_CONTROL,
+                targetVelocity=target_velocities[1]
             )
 
             p.stepSimulation()
@@ -126,7 +126,7 @@ class CarEnv(gym.Env):
             p.getJointState(self.__car, 0)[1],
             p.getJointState(self.__car, 1)[1],
         ], dtype=np.float32)
-        wheel_velocities = wheel_velocities * 0.01
+        wheel_velocities = wheel_velocities * 0.0
 
         # car_T_world @ world_T_goal = car_T_goal
         car_T_goal = np.linalg.inv(world_T_car) @ world_T_goal
