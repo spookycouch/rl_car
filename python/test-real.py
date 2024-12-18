@@ -56,7 +56,7 @@ def get_new_goal() -> Tuple[float, float, float]:
     return np.random.random() * 0.75, np.random.random() * 0.75, 0
 
 async def main(address):
-    MODEL_NAME = "ppo_car_v2"
+    MODEL_NAME = "ppo_car_v3"
     model = PPO.load(MODEL_NAME)
 
     detector_params = cv2.aruco.DetectorParameters()

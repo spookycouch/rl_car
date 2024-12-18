@@ -6,6 +6,7 @@ import pybullet as p
 import pybullet_data
 import gym
 from scipy.spatial.transform import Rotation
+from urdf.urdf_utils import get_urdf_dir_path
 
 def get_homogeneous_transformation_from_pose(position, orientation):
     transform = np.eye(4, dtype=np.float32)
@@ -40,7 +41,7 @@ class CarEnv(gym.Env):
         p.connect(p.GUI)
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
-        self.__car = p.loadURDF("car.urdf", basePosition=(0,0,0.05))
+        self.__car = p.loadURDF(os.path.join(get_urdf_dir_path(), "car.urdf"), basePosition=(0,0,0.05))
         # self.__enable_force_control()
 
         self.__goal = create_sphere()
