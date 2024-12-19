@@ -1,0 +1,14 @@
+model:
+  _target_: stable_baselines3.PPO
+  policy: MlpPolicy
+  verbose: true
+  env:
+    _target_: envs.gripper_one_object.car.CarEnv
+    parameters:
+      _target_: envs.gripper_one_object.car.CarEnv.Parameters
+      real_time: false
+
+training_parameters:
+  _target_: train.TrainingParameters
+  save_prefix: ppo_car_gripper
+  total_timesteps: 1e6
