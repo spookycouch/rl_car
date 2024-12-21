@@ -4,7 +4,7 @@ import time
 import numpy as np
 import pybullet as p
 import pybullet_data
-import gym
+import gymnasium as gym
 from scipy.spatial.transform import Rotation
 from urdf.urdf_utils import get_urdf_dir_path
 
@@ -33,6 +33,7 @@ class CarEnv(gym.Env):
         real_time: bool
 
     def __init__(self, parameters: Parameters):
+        self.__num_steps = 0
         self.__parameters = parameters
 
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32)
@@ -50,11 +51,12 @@ class CarEnv(gym.Env):
         p.setGravity(0, 0, -10)
 
     def reset(self, seed=None, options=None):
+        self.__num_steps = 0
         new_position_xy = np.random.uniform(0.0, 1.0, (2))
         self.__set_new_goal(new_position_xy)
 
         observation = self.__get_observation()
-        return observation
+        return observation, {}
 
     def step(self, action):
         target_velocities = action*4*np.pi
@@ -84,9 +86,14 @@ class CarEnv(gym.Env):
 
         done = reward > -0.05
         truncated = False
+        if self.__num_steps > 600: # 60s
+            p.resetBasePositionAndOrientation(self.__car, (0,0,0), (0,0,0,1))
+            truncated = True
         info = {}
 
-        return observation, reward, done, info
+        self.__num_steps += 1
+
+        return observation, reward, done, truncated, info
 
     def __enable_force_control(self):
         p.setJointMotorControl2(
