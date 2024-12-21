@@ -1,12 +1,14 @@
+env:
+  _target_: envs.reacher.car.CarEnv
+  parameters:
+    _target_: envs.reacher.car.CarEnv.Parameters
+    real_time: false
+
 model:
   _target_: stable_baselines3.PPO
   policy: MlpPolicy
   verbose: true
-  env:
-    _target_: envs.reacher.car.CarEnv
-    parameters:
-      _target_: envs.reacher.car.CarEnv.Parameters
-      real_time: false
+  env: ${env}
 
 training_parameters:
   _target_: train.TrainingParameters
