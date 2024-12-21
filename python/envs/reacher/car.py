@@ -28,13 +28,12 @@ def create_sphere():
 
     
 class CarEnv(gym.Env):
-    @dataclass
-    class Parameters:
-        real_time: bool
-
-    def __init__(self, parameters: Parameters):
+    def __init__(
+        self,
+        real_time: bool,
+    ):
         self.__num_steps = 0
-        self.__parameters = parameters
+        self.__real_time = real_time
 
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(5,), dtype=np.float32)
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
@@ -43,7 +42,6 @@ class CarEnv(gym.Env):
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.__car = p.loadURDF(os.path.join(get_urdf_dir_path(), "car.urdf"), basePosition=(0,0,0.05))
-        # self.__enable_force_control()
 
         self.__goal = create_sphere()
         self.__set_new_goal([0,1])
@@ -76,7 +74,7 @@ class CarEnv(gym.Env):
             )
 
             p.stepSimulation()
-            if self.__parameters.real_time:
+            if self.__real_time:
                 time.sleep(1./240.)
 
         observation = self.__get_observation()
@@ -95,26 +93,6 @@ class CarEnv(gym.Env):
 
         return observation, reward, done, truncated, info
 
-    def __enable_force_control(self):
-        p.setJointMotorControl2(
-            self.__car,
-            0,
-            p.VELOCITY_CONTROL,
-            force=0
-        )
-        p.setJointMotorControl2(
-            self.__car,
-            1,
-            p.VELOCITY_CONTROL,
-            force=0
-        )
-        p.setJointMotorControl2(
-            self.__car,
-            2,
-            p.VELOCITY_CONTROL,
-            force=0
-        )
-    
     def __set_new_goal(self, position_xy):
         new_position = list(position_xy) + [0.025]
         p.resetBasePositionAndOrientation(

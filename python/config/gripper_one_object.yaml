@@ -1,8 +1,6 @@
 env:
   _target_: envs.gripper_one_object.car.CarEnv
-  parameters:
-    _target_: envs.gripper_one_object.car.CarEnv.Parameters
-    real_time: false
+  real_time: false
 
 model:
   _target_: stable_baselines3.PPO
