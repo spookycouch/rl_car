@@ -1,5 +1,5 @@
 env:
-  _target_: envs.reacher.car.CarEnv
+  _target_: envs.reacher.sim.CarEnv
   real_time: false
 
 model:
