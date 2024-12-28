@@ -42,9 +42,9 @@ class CarEnv(gym.Env):
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.__car = p.loadURDF(os.path.join(get_urdf_dir_path(), "car_gripper.urdf"), basePosition=(0,0,0.05))
-        self.__goal = p.loadURDF(os.path.join(get_urdf_dir_path(), "pringles.urdf"), basePosition=(0.5, 0.5, 0.05))
+        self.__object = p.loadURDF(os.path.join(get_urdf_dir_path(), "pringles.urdf"), basePosition=(0.5, 0.5, 0.05))
 
-        self.__set_new_goal([0,1])
+        self.__set_new_object([0,1])
 
         p.setGravity(0, 0, -10)
 
@@ -56,7 +56,7 @@ class CarEnv(gym.Env):
         new_position_xy = car_position_xy.copy()
         while np.linalg.norm(new_position_xy - car_position_xy) < 0.15:
             new_position_xy = np.random.uniform(0, 1, (2))
-        self.__set_new_goal(new_position_xy)
+        self.__set_new_object(new_position_xy)
 
         observation = self.__get_observation()
         return observation, {}
@@ -86,18 +86,18 @@ class CarEnv(gym.Env):
 
         info = self.__get_info()
         world_T_car = info["world_T_car"]
-        world_T_goal = info["world_T_goal"]
+        world_T_object = info["world_T_object"]
         car_T_gripper = info["car_T_gripper"]
         gripper_T_car = np.linalg.inv(car_T_gripper)
         car_T_world = np.linalg.inv(world_T_car)
-        # car_T_goal = car_T_world @ world_T_goal
-        gripper_T_goal = gripper_T_car @ car_T_world @ world_T_goal
+        # car_T_object = car_T_world @ world_T_object
+        gripper_T_object = gripper_T_car @ car_T_world @ world_T_object
 
-        dist_target = float(np.linalg.norm(gripper_T_goal[:2,3]))
-        dist_endgoal = float(np.linalg.norm(world_T_goal[:2,3]))
-        reward = -(dist_target * 0.5 + dist_endgoal)
+        dist_target = float(np.linalg.norm(gripper_T_object[:2,3]))
+        dist_endobject = float(np.linalg.norm(world_T_object[:2,3]))
+        reward = -(dist_target * 0.5 + dist_endobject)
 
-        done = dist_endgoal < 0.05
+        done = dist_endobject < 0.05
 
 
         truncated = False
@@ -110,10 +110,10 @@ class CarEnv(gym.Env):
 
         return observation, reward, done, truncated, info
 
-    def __set_new_goal(self, position_xy):
+    def __set_new_object(self, position_xy):
         new_position = list(position_xy) + [0.05]
         p.resetBasePositionAndOrientation(
-            self.__goal,
+            self.__object,
             posObj=new_position,
             ornObj=(0,0,0,1)
         )
@@ -125,11 +125,11 @@ class CarEnv(gym.Env):
         car_T_gripper = np.eye(4)
         car_T_gripper[:3,3] = [0, -0.0825, 0]
 
-        goal_position, _ = p.getBasePositionAndOrientation(self.__goal)
-        world_T_goal = get_homogeneous_transformation_from_pose(goal_position, [0,0,0,1])
+        object_position, _ = p.getBasePositionAndOrientation(self.__object)
+        world_T_object = get_homogeneous_transformation_from_pose(object_position, [0,0,0,1])
 
         info = {
-            "world_T_goal": world_T_goal,
+            "world_T_object": world_T_object,
             "world_T_car": world_T_car,
             "car_T_gripper": car_T_gripper,
         }
@@ -138,25 +138,20 @@ class CarEnv(gym.Env):
     def __get_observation(self):
         position, orientation = p.getBasePositionAndOrientation(self.__car)
         world_T_car = get_homogeneous_transformation_from_pose(position, orientation)
-        car_rotation_z_rad = Rotation.from_quat(orientation).as_euler("xyz")[2]/(2*np.pi)
 
-        goal_position, _ = p.getBasePositionAndOrientation(self.__goal)
-        world_T_goal = get_homogeneous_transformation_from_pose(goal_position, [0,0,0,1])
+        object_position, _ = p.getBasePositionAndOrientation(self.__object)
+        world_T_object = get_homogeneous_transformation_from_pose(object_position, [0,0,0,1])
 
         wheel_velocities = np.array([
             p.getJointState(self.__car, 0)[1],
             p.getJointState(self.__car, 1)[1],
         ], dtype=np.float32)
-        # wheel_velocities = wheel_velocities * 0.0
 
-        # car_T_world @ world_T_goal = car_T_goal
         car_T_world = np.linalg.inv(world_T_car)
-        car_T_goal = car_T_world @ world_T_goal
-        # angle_car_to_goal_rad = np.arctan2(car_T_goal[1,3], car_T_goal[0,3])
-        delta_position = car_T_goal[:3,3]
+        car_T_object = car_T_world @ world_T_object
 
         observation =  np.concatenate([
-            car_T_goal[:3,3],
+            car_T_object[:3,3],
             car_T_world[:3,3],
             wheel_velocities,
         ], dtype=np.float32)
