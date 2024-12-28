@@ -2,6 +2,10 @@ env:
   _target_: envs.reacher.sim.CarEnv
   real_time: false
 
+env_real:
+  _target_: envs.reacher.real.RealEnv
+  address: ${oc.env:ROBOT_MAC_ADDRESS}
+
 model:
   _target_: stable_baselines3.PPO
   policy: MlpPolicy
