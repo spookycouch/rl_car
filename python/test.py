@@ -22,7 +22,7 @@ def main(
     while True:
         action, _states = model.predict(obs)
         obs, reward, done, truncated, info = env.step(action)
-        if done:
+        if done or truncated:
             obs, _ = env.reset()
 
 if __name__ == "__main__":

@@ -26,6 +26,17 @@ def create_sphere():
     multibody_id = p.createMultiBody(baseVisualShapeIndex=visual_id)
     return multibody_id
 
+def get_new_distant_point(points, low, high, min_distance=0.15, max_tries=10):
+    for _ in range(max_tries):
+        proposal = np.random.uniform(low, high, points[0].shape)
+        for point in points:
+            if np.linalg.norm(proposal - point) < min_distance:
+                break
+        else:
+            return proposal
+    
+    return None
+
     
 class CarEnv(gym.Env):
     def __init__(
@@ -35,33 +46,60 @@ class CarEnv(gym.Env):
         self.__num_steps = 0
         self.__real_time = real_time
 
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(8,), dtype=np.float32)
+        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(4,), dtype=np.float32)
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
         p.connect(p.GUI)
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self.__car = p.loadURDF(os.path.join(get_urdf_dir_path(), "car_gripper.urdf"), basePosition=(0,0,0.05))
-        self.__object = p.loadURDF(os.path.join(get_urdf_dir_path(), "pringles.urdf"), basePosition=(0.5, 0.5, 0.05))
+        self.__object = p.loadURDF(os.path.join(get_urdf_dir_path(), "kp.urdf"), basePosition=(0.5, 0.5, 0.05))
+        self.__goal = create_sphere()
 
-        self.__set_new_object([0,1])
+        self.__obs_error = np.zeros(4)
+        self.reset()
 
         p.setGravity(0, 0, -10)
+
+        self.__last_log_time = time.time()
+        self.__last_actions = []
+        self.__last_rewards = []
 
     def reset(self, seed=None, options=None):
         self.__num_steps = 0
 
-        position, orientation = p.getBasePositionAndOrientation(self.__car)
+        position, _orientation = p.getBasePositionAndOrientation(self.__car)
         car_position_xy = np.array(position[:2])
-        new_position_xy = car_position_xy.copy()
-        while np.linalg.norm(new_position_xy - car_position_xy) < 0.15:
-            new_position_xy = np.random.uniform(0, 1, (2))
-        self.__set_new_object(new_position_xy)
+        
+        object_position_xy = get_new_distant_point(
+            points=[car_position_xy],
+            low=-1,
+            high=1,
+        )
+        object_position = list(object_position_xy) + [0.05]
+        p.resetBasePositionAndOrientation(
+            self.__object,
+            posObj=object_position,
+            ornObj=(0,0,0,1)
+        )
 
+        goal_position_xy = get_new_distant_point(
+            points=[car_position_xy, object_position_xy],
+            low=-1,
+            high=1,
+        )
+        goal_position = list(goal_position_xy) + [0.025]
+        p.resetBasePositionAndOrientation(
+            self.__goal,
+            posObj=goal_position,
+            ornObj=(0,0,0,1)
+        )
+
+        self.__obs_error = np.random.uniform(-0.01, 0.01, 4)
         observation = self.__get_observation()
         return observation, {}
 
-    def step(self, action):
+    def step(self, action):        
         target_velocities = action*2*np.pi
 
         for _ in range(24):
@@ -87,36 +125,44 @@ class CarEnv(gym.Env):
         info = self.__get_info()
         world_T_car = info["world_T_car"]
         world_T_object = info["world_T_object"]
+        world_T_goal = info["world_T_goal"]
         car_T_gripper = info["car_T_gripper"]
+        
         gripper_T_car = np.linalg.inv(car_T_gripper)
         car_T_world = np.linalg.inv(world_T_car)
-        # car_T_object = car_T_world @ world_T_object
         gripper_T_object = gripper_T_car @ car_T_world @ world_T_object
+        dist_object = float(np.linalg.norm(gripper_T_object[:2,3]))
 
-        dist_target = float(np.linalg.norm(gripper_T_object[:2,3]))
-        dist_endobject = float(np.linalg.norm(world_T_object[:2,3]))
-        reward = -(dist_target * 0.5 + dist_endobject)
-
-        done = dist_endobject < 0.05
-
+        object_T_world = np.linalg.inv(world_T_object)
+        object_T_goal = object_T_world @ world_T_goal
+        dist_goal = float(np.linalg.norm(object_T_goal[:2,3]))
+        
+        reward = -(dist_object * 0.5 + dist_goal)/3.0
+        done = dist_goal < 0.05
 
         truncated = False
-        if self.__num_steps > 600: # 60s
-            p.resetBasePositionAndOrientation(self.__car, list(np.random.uniform(0, 1, (2))) + [0.05], (0,0,0,1))
+        if self.__num_steps > 300: # 30s
+            p.resetBasePositionAndOrientation(self.__car, list(np.random.uniform(-1, 1, (2))) + [0.05], (0,0,0,1))
             truncated = True
         info = {}
 
         self.__num_steps += 1
 
+        self.__last_actions.append(action)
+        self.__last_rewards.append(reward)
+        if time.time() - self.__last_log_time > 1.0:
+            print(
+                f"mean action: {np.mean(self.__last_actions, axis=0)} "
+                f"mean reward: {np.mean(self.__last_rewards):.3f} "
+                f"dists: {dist_goal:.3f} {dist_object:.3f} "
+                f"last obs: {observation}"
+            )
+            self.__last_log_time = time.time()
+            self.__last_actions = []
+            self.__last_rewards = []
+
         return observation, reward, done, truncated, info
 
-    def __set_new_object(self, position_xy):
-        new_position = list(position_xy) + [0.05]
-        p.resetBasePositionAndOrientation(
-            self.__object,
-            posObj=new_position,
-            ornObj=(0,0,0,1)
-        )
 
     def __get_info(self):
         position, orientation = p.getBasePositionAndOrientation(self.__car)
@@ -127,34 +173,39 @@ class CarEnv(gym.Env):
 
         object_position, _ = p.getBasePositionAndOrientation(self.__object)
         world_T_object = get_homogeneous_transformation_from_pose(object_position, [0,0,0,1])
+        
+        goal_position, _ = p.getBasePositionAndOrientation(self.__goal)
+        world_T_goal = get_homogeneous_transformation_from_pose(goal_position, [0,0,0,1])
 
         info = {
             "world_T_object": world_T_object,
             "world_T_car": world_T_car,
+            "world_T_goal": world_T_goal,
             "car_T_gripper": car_T_gripper,
         }
         return info
 
     def __get_observation(self):
-        position, orientation = p.getBasePositionAndOrientation(self.__car)
-        world_T_car = get_homogeneous_transformation_from_pose(position, orientation)
+        info = self.__get_info()
+        world_T_car = info["world_T_car"]
+        world_T_object = info["world_T_object"]
+        world_T_goal = info["world_T_goal"]
 
-        object_position, _ = p.getBasePositionAndOrientation(self.__object)
-        world_T_object = get_homogeneous_transformation_from_pose(object_position, [0,0,0,1])
-
-        wheel_velocities = np.array([
-            p.getJointState(self.__car, 0)[1],
-            p.getJointState(self.__car, 1)[1],
-        ], dtype=np.float32)
+        # wheel_velocities = np.array([
+        #     p.getJointState(self.__car, 0)[1],
+        #     p.getJointState(self.__car, 1)[1],
+        # ], dtype=np.float32)
 
         car_T_world = np.linalg.inv(world_T_car)
+        car_T_goal = car_T_world @ world_T_goal
         car_T_object = car_T_world @ world_T_object
 
         observation =  np.concatenate([
-            car_T_object[:3,3],
-            car_T_world[:3,3],
-            wheel_velocities,
+            car_T_object[:2,3],
+            car_T_goal[:2,3],
         ], dtype=np.float32)
+        observation += self.__obs_error
+        
         return observation
 
 if __name__ == "__main__":
