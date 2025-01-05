@@ -19,8 +19,14 @@ class OpenCVCameraWrapper:
         distortion_coeffs: np.ndarray,
     ):
         self.__cap = cv2.VideoCapture(video_source)
+        self.__cap.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        self.__cap.set(cv2.CAP_PROP_EXPOSURE, 100)
+
         self.__intrinsic_matrix = intrinsic_matrix
         self.__distortion_coeffs = distortion_coeffs
+    
+    def __del__(self):
+        self.__cap.release()
     
     def get_frame(self) -> CameraFrame:
         _, frame = self.__cap.read()
