@@ -66,6 +66,7 @@ class CarEnv(gym.Env):
         self.__last_rewards = []
 
     def reset(self, seed=None, options=None):
+        np.random.seed(seed)
         self.__num_steps = 0
 
         position, _orientation = p.getBasePositionAndOrientation(self.__car)
@@ -73,7 +74,7 @@ class CarEnv(gym.Env):
         
         object_position_xy = get_new_distant_point(
             points=[car_position_xy],
-            low=-1,
+            low=0,
             high=1,
         )
         object_position = list(object_position_xy) + [0.05]
@@ -85,7 +86,7 @@ class CarEnv(gym.Env):
 
         goal_position_xy = get_new_distant_point(
             points=[car_position_xy, object_position_xy],
-            low=-1,
+            low=0,
             high=1,
         )
         goal_position = list(goal_position_xy) + [0.025]
@@ -95,12 +96,13 @@ class CarEnv(gym.Env):
             ornObj=(0,0,0,1)
         )
 
-        self.__obs_error = np.random.uniform(-0.01, 0.01, 4)
+        self.__obs_error = np.random.uniform(-0.03, 0.03, 4)
         observation = self.__get_observation()
         return observation, {}
 
     def step(self, action):        
-        target_velocities = action*2*np.pi
+        target_velocities = action*np.pi
+        target_velocities = target_velocities * (abs(target_velocities) > 0.5)
 
         for _ in range(24):
             p.setJointMotorControl2(
@@ -142,7 +144,7 @@ class CarEnv(gym.Env):
 
         truncated = False
         if self.__num_steps > 300: # 30s
-            p.resetBasePositionAndOrientation(self.__car, list(np.random.uniform(-1, 1, (2))) + [0.05], (0,0,0,1))
+            p.resetBasePositionAndOrientation(self.__car, list(np.random.uniform(0, 1, (2))) + [0.05], (0,0,0,1))
             truncated = True
         info = {}
 
@@ -190,11 +192,6 @@ class CarEnv(gym.Env):
         world_T_car = info["world_T_car"]
         world_T_object = info["world_T_object"]
         world_T_goal = info["world_T_goal"]
-
-        # wheel_velocities = np.array([
-        #     p.getJointState(self.__car, 0)[1],
-        #     p.getJointState(self.__car, 1)[1],
-        # ], dtype=np.float32)
 
         car_T_world = np.linalg.inv(world_T_car)
         car_T_goal = car_T_world @ world_T_goal

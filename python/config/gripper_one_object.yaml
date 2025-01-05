@@ -2,8 +2,12 @@ env:
   _target_: envs.gripper_one_object.sim.CarEnv
   real_time: false
 
+env_real:
+  _target_: envs.gripper_one_object.real.RealEnv
+  address: ${oc.env:ROBOT_MAC_ADDRESS}
+
 model:
-  _target_: stable_baselines3.PPO
+  _target_: stable_baselines3.SAC
   policy: MlpPolicy
   verbose: true
   env: ${env}

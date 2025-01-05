@@ -8,16 +8,16 @@
     <color rgba="0.25 0.25 0.25 1"/>
   </material>
 
-  <link name="base_link">
+  <link concave="yes" name="base_link">
     <visual>
       <geometry>
-        <cylinder length="0.01" radius="0.0825"/>
+        <mesh filename="base.stl"/>
       </geometry>
       <material name="pink"/>
     </visual>
-    <collision>
+    <collision concave="yes">
       <geometry>
-        <cylinder length="0.01" radius="0.0825"/>
+        <mesh filename="base.stl"/>
       </geometry>
     </collision>
     <inertial>
@@ -55,7 +55,7 @@
   <joint name="wheel_l_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_l"/>
-    <origin rpy="0 1.57 0" xyz="0.091 0 0.01"/>
+    <origin rpy="0 1.57 0" xyz="0.0705 0 0.01"/>
     <axis xyz="0 0 -1"/>
   </joint>
 
@@ -87,7 +87,7 @@
   <joint name="wheel_r_joint" type="continuous">
     <parent link="base_link"/>
     <child link="wheel_r"/>
-    <origin rpy="0 1.57 0" xyz="-0.091 0 0.01"/>
+    <origin rpy="0 1.57 0" xyz="-0.0705 0 0.01"/>
     <axis xyz="0 0 -1"/>
   </joint>
 
@@ -167,7 +167,7 @@
   <joint name="gripper_joint" type="fixed">
     <parent link="base_link"/>
     <child link="gripper"/>
-    <origin rpy="0 0 3.142" xyz="0 -0.0825 0.005"/>
+    <origin rpy="0 0 3.142" xyz="0 -0.085 0.005"/>
   </joint>
 
 </robot>
