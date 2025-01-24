@@ -39,6 +39,13 @@ def get_new_distant_point(points, low, high, min_distance=0.15, max_tries=10):
 
     
 class CarEnv(gym.Env):
+    @dataclass
+    class Transforms:
+        car_T_object: np.ndarray
+        car_T_goal: np.ndarray
+        gripper_T_object: np.ndarray
+        object_T_goal: np.ndarray
+
     def __init__(
         self,
         real_time: bool
@@ -97,7 +104,9 @@ class CarEnv(gym.Env):
         )
 
         self.__obs_error = np.random.uniform(-0.03, 0.03, 4)
-        observation = self.__get_observation()
+
+        transforms = self.__get_transforms()
+        observation = self.__get_observation(transforms)
         return observation, {}
 
     def step(self, action):        
@@ -122,23 +131,11 @@ class CarEnv(gym.Env):
             if self.__real_time:
                 time.sleep(1./240.)
 
-        observation = self.__get_observation()
+        transforms = self.__get_transforms()
+        observation = self.__get_observation(transforms)
 
-        info = self.__get_info()
-        world_T_car = info["world_T_car"]
-        world_T_object = info["world_T_object"]
-        world_T_goal = info["world_T_goal"]
-        car_T_gripper = info["car_T_gripper"]
-        
-        gripper_T_car = np.linalg.inv(car_T_gripper)
-        car_T_world = np.linalg.inv(world_T_car)
-        gripper_T_object = gripper_T_car @ car_T_world @ world_T_object
-        dist_object = float(np.linalg.norm(gripper_T_object[:2,3]))
-
-        object_T_world = np.linalg.inv(world_T_object)
-        object_T_goal = object_T_world @ world_T_goal
-        dist_goal = float(np.linalg.norm(object_T_goal[:2,3]))
-        
+        dist_object = float(np.linalg.norm(transforms.gripper_T_object[:2,3]))
+        dist_goal = float(np.linalg.norm(transforms.object_T_goal[:2,3]))
         reward = -(dist_object * 0.5 + dist_goal)/3.0
         done = dist_goal < 0.05
 
@@ -166,9 +163,10 @@ class CarEnv(gym.Env):
         return observation, reward, done, truncated, info
 
 
-    def __get_info(self):
+    def __get_transforms(self):
         position, orientation = p.getBasePositionAndOrientation(self.__car)
         world_T_car = get_homogeneous_transformation_from_pose(position, orientation)
+        car_T_world = np.linalg.inv(world_T_car)
 
         car_T_gripper = np.eye(4)
         car_T_gripper[:3,3] = [0, -0.0825, 0]
@@ -179,27 +177,25 @@ class CarEnv(gym.Env):
         goal_position, _ = p.getBasePositionAndOrientation(self.__goal)
         world_T_goal = get_homogeneous_transformation_from_pose(goal_position, [0,0,0,1])
 
-        info = {
-            "world_T_object": world_T_object,
-            "world_T_car": world_T_car,
-            "world_T_goal": world_T_goal,
-            "car_T_gripper": car_T_gripper,
-        }
-        return info
-
-    def __get_observation(self):
-        info = self.__get_info()
-        world_T_car = info["world_T_car"]
-        world_T_object = info["world_T_object"]
-        world_T_goal = info["world_T_goal"]
-
-        car_T_world = np.linalg.inv(world_T_car)
-        car_T_goal = car_T_world @ world_T_goal
         car_T_object = car_T_world @ world_T_object
+        car_T_goal = car_T_world @ world_T_goal
+        gripper_T_object = np.linalg.inv(car_T_gripper) @ car_T_world @ world_T_object
+        object_T_goal = np.linalg.inv(world_T_object) @ world_T_goal
 
+        return CarEnv.Transforms(
+            car_T_object,
+            car_T_goal,
+            gripper_T_object,
+            object_T_goal,
+        )
+
+    def __get_observation(
+        self,
+        transforms: Transforms
+    ):
         observation =  np.concatenate([
-            car_T_object[:2,3],
-            car_T_goal[:2,3],
+            transforms.car_T_object[:2,3],
+            transforms.car_T_goal[:2,3],
         ], dtype=np.float32)
         observation += self.__obs_error
         
