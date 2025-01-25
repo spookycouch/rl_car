@@ -1,0 +1,20 @@
+env:
+  _target_: envs.gripper_multi_object.sim.CarEnv
+  real_time: true
+
+env_real:
+  _target_: envs.gripper_multi_object.real.RealEnv
+  address: ${oc.env:ROBOT_MAC_ADDRESS}
+
+model:
+  _target_: stable_baselines3.SAC
+  policy: MlpPolicy
+  # ent_coef: auto_0.1 # finetune
+  verbose: true
+  env: ${env}
+
+training_parameters:
+  _target_: train.TrainingParameters
+  save_prefix: ppo_car_gripper
+  total_timesteps: 2e6
+  # total_timesteps: 2.5e5 # finetune
