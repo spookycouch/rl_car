@@ -12,7 +12,7 @@ FPS = 20
 MONO_RESOLUTION = dai.MonoCameraProperties.SensorResolution.THE_400_P
 XOUT_DEPTH_KEY = "XOUT_DEPTH_KEY"
 XOUT_RGB_KEY = "XOUT_RGB_KEY"
-MAXIMUM_Z_MILLIMETRES = 1000
+MAXIMUM_Z_MILLIMETRES = 2500
 RGB_SIZE = (712, 400)
 # PREVIEW_SIZE = (1920, 1080)
 PREVIEW_SIZE = (960, 540)
@@ -21,6 +21,7 @@ PREVIEW_SIZE = (960, 540)
 class OakDCamera:
     def __init__(
         self,
+        warm_up_frames: int = 0
     ):
         # create pipeline
         pipeline = dai.Pipeline()
@@ -48,6 +49,7 @@ class OakDCamera:
             lensPosition = calibData.getLensPosition(rgbCamSocket)
             if lensPosition:
                 camRgb.initialControl.setManualFocus(lensPosition)
+            camRgb.initialControl.setAutoExposureLimit(10000)
         except:
             raise
 
@@ -60,7 +62,7 @@ class OakDCamera:
         right.setFps(FPS)
 
         # setup stereo depth
-        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.ROBOTICS)
+        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DETAIL)
         stereo.setDepthAlign(rgbCamSocket)
         stereo.setOutputSize(*PREVIEW_SIZE)
 
@@ -78,6 +80,10 @@ class OakDCamera:
 
         self.__device.startPipeline(pipeline)
         self.__queue = self.__device.getOutputQueue("xout", 1, False)
+        
+        # warm up the camera
+        for _ in range(warm_up_frames):
+            self.get_frame()
 
     def __del__(self):
         self.__device.close()
@@ -95,6 +101,7 @@ class OakDCamera:
 
         return CameraFrame(
             frameRgb,
+            frameDepth,
             self.__intrinsics_matrix,
             np.empty(0)
         )
@@ -104,5 +111,11 @@ if __name__ == "__main__":
     camera = OakDCamera()
     while 1:
         frame = camera.get_frame()
-        cv2.imshow("blended", frame.frame)
+
+        depth = (frame.depth * (255 / MAXIMUM_Z_MILLIMETRES)).astype(np.uint8)
+        depth = cv2.applyColorMap(depth, cv2.COLORMAP_JET)
+        blended = cv2.addWeighted(frame.frame, 0.4, depth, 0.6, 0)
+
+        cv2.imshow("rgb", frame.frame)
+        cv2.imshow("blended", blended)
         cv2.waitKey(1)

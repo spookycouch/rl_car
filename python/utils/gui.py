@@ -94,12 +94,6 @@ class BaseSelector(Detector):
             2,
         )
 
-        # Convert image for display
-        if display.shape[-1] == 3:
-            display = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
-        else:
-            display = display
-
         # Update canvas size
         height, width = display.shape[:2]
         self.canvas.config(width=width, height=height)
@@ -122,12 +116,18 @@ class BaseSelector(Detector):
 
 class PointSelector(BaseSelector):
     """Selector for single point selection."""
+    def __init__(
+        self,
+        instructions: str
+    ):
+        super().__init__()
+        self.__instructions = instructions
 
     def _get_window_title(self) -> str:
         return "Point Selector"
 
     def _get_instructions(self) -> str:
-        return "Click to select a single point"
+        return self.__instructions
 
     def _on_mouse_down(self, event):
         self.selection = (event.x, event.y)
@@ -155,12 +155,15 @@ class PointSelector(BaseSelector):
 
 class BoundingBoxSelector(BaseSelector):
     """Selector for bounding box selection."""
+    def __init__(self, instructions: str):
+        super().__init__()
+        self.__instructions = instructions
 
     def _get_window_title(self) -> str:
         return "Bounding Box Selector"
 
     def _get_instructions(self) -> str:
-        return "Click and drag to draw a bounding box"
+        return self.__instructions
 
     def _on_mouse_down(self, event):
         self.drawing = True

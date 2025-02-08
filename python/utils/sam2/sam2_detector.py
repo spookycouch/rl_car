@@ -5,9 +5,8 @@ from sympy import Point
 from sam2.build_sam import build_sam2_camera_predictor
 
 import sys
-sys.path.insert(0, "../../gui")
 sys.path.insert(0, "../../utils")
-from gui import PointSelector
+from gui import BoundingBoxSelector, PointSelector
 from scipy.ndimage import center_of_mass
 from oak_d_camera import OakDCamera
 
@@ -25,14 +24,15 @@ class Sam2Detector:
 
         if not self.__is_initialised:
             self.__predictor.load_first_frame(frame)
-            x_pos, y_pos = PointSelector().detect(frame)[0] # for the target object
-            x_neg, y_neg = PointSelector().detect(frame)[0] # for the gripper
+            pos_object = BoundingBoxSelector("Click and drag to draw a box around the target object:").detect(frame) # for the target object
+            neg_gripper = PointSelector("Click on the robot gripper:").detect(frame)[0] # for the gripper
 
-            points = np.array([[x_pos,y_pos], [x_neg, y_neg]], dtype=np.float32)
-            labels = np.array([1, 0], dtype=np.int32)
+            bbox = np.array([pos_object[0], pos_object[3]], dtype=np.float32)
+            points = np.array([neg_gripper], dtype=np.float32)
+            labels = np.array([0], dtype=np.int32)
             
             _, out_obj_ids, out_mask_logits = self.__predictor.add_new_prompt(
-                frame_idx=0,obj_id=1, points=points, labels=labels
+                frame_idx=0,obj_id=1, bbox=bbox, points=points, labels=labels
             )
             self.__is_initialised = True
         else:
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     detector = Sam2Detector(args.model_cfg, args.sam2_checkpoint)
 
-    camera = OakDCamera()
+    camera = OakDCamera(warm_up_frames=30)
     while True:
         frame = camera.get_frame().frame
 
