@@ -77,12 +77,7 @@ class BaseSelector(Detector):
         # Reset state
         self.selection = None
 
-        # Resize image if too large
         height, width = image.shape[:2]
-        max_size = 800
-        if height > max_size or width > max_size:
-            scale = max_size / max(height, width)
-            image = cv2.resize(image, None, fx=scale, fy=scale)
 
         # Create a copy for drawing
         display = image.copy()
