@@ -19,6 +19,10 @@ class DifferentialDriveRobot(ABC):
         """Execute a single command."""
 
 
+class MockRobot(DifferentialDriveRobot):
+    def execute_command(self, _command):
+        pass
+
 class BluetoothLowEnergyRobot(DifferentialDriveRobot):
     def __init__(
         self,

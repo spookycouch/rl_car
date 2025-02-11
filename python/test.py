@@ -36,4 +36,4 @@ if __name__ == "__main__":
 
     with initialize(config_path=config_dir):
         cfg = compose(config_name=config_name)
-        main(cfg, args)
+    main(cfg, args)

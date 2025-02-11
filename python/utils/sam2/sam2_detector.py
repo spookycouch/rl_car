@@ -4,11 +4,8 @@ import numpy as np
 from sympy import Point
 from sam2.build_sam import build_sam2_camera_predictor
 
-import sys
-sys.path.insert(0, "../../utils")
-from gui import BoundingBoxSelector, PointSelector
+from utils.gui import BoundingBoxSelector, PointSelector
 from scipy.ndimage import center_of_mass
-from oak_d_camera import OakDCamera
 
 class Sam2Detector:
     def __init__(
@@ -66,6 +63,8 @@ class Sam2Detector:
 
 
 if __name__ == "__main__":
+    from oak_d_camera import OakDCamera
+    
     parser = ArgumentParser()
     parser.add_argument("model_cfg")
     parser.add_argument("sam2_checkpoint")
