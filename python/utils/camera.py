@@ -1,6 +1,6 @@
 
 from dataclasses import dataclass
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import cv2
@@ -8,6 +8,7 @@ import cv2
 @dataclass
 class CameraFrame:
     frame: np.ndarray
+    depth: Optional[np.ndarray]
     intrinsic_matrix: np.ndarray
     distortion_coeffs: np.ndarray
 
