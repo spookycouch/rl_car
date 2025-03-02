@@ -4,18 +4,13 @@ from typing import Dict, Optional
 import cv2
 import numpy as np
 import gymnasium as gym
+from utils.oak_d_camera import OakDCamera
 from scipy.spatial.transform import Rotation
 from utils.camera import OpenCVCameraWrapper, CameraFrame
 from utils.differential_drive_robot import BluetoothLowEnergyRobot, DifferentialDriveRobot
 
 
 MARKER_SIDE = 0.09
-CAMERA_MATRIX = np.array([
-    [616.90312593,   0.        , 342.70431048,],
-    [  0.        , 618.48254063, 272.13499089,],
-    [  0.        ,   0.        ,   1.        ,],
-])
-DIST_COEFFS = np.array([[-0.00953016, -0.22793283,  0.00619988, -0.00298346,  0.2422911]])
 VELOCITY_SCALE = 2 * np.pi
 GOAL_THRESHOLD = 0.15
 
@@ -34,11 +29,7 @@ class RealEnv(gym.Env):
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
         # use hydra for this
-        self.__camera = OpenCVCameraWrapper(
-            video_source=2,
-            intrinsic_matrix=CAMERA_MATRIX,
-            distortion_coeffs=DIST_COEFFS,
-        )
+        self.__camera = OakDCamera()
         # also parameterisable
         self.__detector = cv2.aruco.ArucoDetector(
             cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50),
@@ -90,13 +81,25 @@ class RealEnv(gym.Env):
         cv2.aruco.drawDetectedMarkers(image, corners, ids)
         if corners:
             marker_ids = [marker_id[0] for marker_id in ids] 
-            rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(corners, MARKER_SIDE, CAMERA_MATRIX, DIST_COEFFS)
+            rvecs, tvecs, obj_points = cv2.aruco.estimatePoseSingleMarkers(
+                corners,
+                MARKER_SIDE,
+                frame.intrinsic_matrix,
+                frame.distortion_coeffs
+            )
             for marker_id, rvec, tvec in zip(marker_ids, rvecs, tvecs):
                 marker_transform = np.eye(4)
                 marker_transform[:3,:3] = Rotation.from_rotvec(rvec).as_matrix()
                 marker_transform[:3,3] = tvec
                 detections[marker_id] = marker_transform
-                cv2.drawFrameAxes(image, CAMERA_MATRIX, DIST_COEFFS, rvec, tvec, MARKER_SIDE/2.0)
+                cv2.drawFrameAxes(
+                    image,
+                    frame.intrinsic_matrix,
+                    frame.distortion_coeffs,
+                    rvec,
+                    tvec,
+                    MARKER_SIDE/2.0
+                )
         
         # use a filter for this, later.
         # likely this could also just be a dataclass.
@@ -113,7 +116,13 @@ class RealEnv(gym.Env):
 
         if camera_T_world is not None:
             camera_T_target = camera_T_world @ world_T_target
-            target_2d, _ = cv2.projectPoints(camera_T_target[:3,3], (0,0,0), (0,0,0), CAMERA_MATRIX, DIST_COEFFS)
+            target_2d, _ = cv2.projectPoints(
+                camera_T_target[:3,3],
+                (0,0,0),
+                (0,0,0),
+                frame.intrinsic_matrix,
+                frame.distortion_coeffs
+            )
             target = int(target_2d[0,0,0]), int(target_2d[0,0,1])
             cv2.circle(image, target, 5, (0,0,255), -1)
         
