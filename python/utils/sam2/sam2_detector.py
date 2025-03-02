@@ -22,14 +22,10 @@ class Sam2Detector:
         if not self.__is_initialised:
             self.__predictor.load_first_frame(frame)
             pos_object = BoundingBoxSelector("Click and drag to draw a box around the target object:").detect(frame) # for the target object
-            neg_gripper = PointSelector("Click on the robot gripper:").detect(frame)[0] # for the gripper
-
             bbox = np.array([pos_object[0], pos_object[3]], dtype=np.float32)
-            points = np.array([neg_gripper], dtype=np.float32)
-            labels = np.array([0], dtype=np.int32)
             
             _, out_obj_ids, out_mask_logits = self.__predictor.add_new_prompt(
-                frame_idx=0,obj_id=1, bbox=bbox, points=points, labels=labels
+                frame_idx=0,obj_id=1, bbox=bbox,
             )
             self.__is_initialised = True
         else:
@@ -48,6 +44,12 @@ class Sam2Detector:
                 return com, out_mask
 
         return None, None
+
+    def reset(self):
+        if self.__is_initialised:
+            self.__predictor.reset_state()
+        
+        self.__is_initialised = False
 
 
 
