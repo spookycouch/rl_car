@@ -1,6 +1,6 @@
 env:
   _target_: envs.gripper_multi_object.sim.CarEnv
-  real_time: false
+  real_time: true
 
 env_real:
   _target_: envs.gripper_multi_object.real.RealEnv
@@ -16,5 +16,5 @@ model:
 training_parameters:
   _target_: train.TrainingParameters
   save_prefix: ppo_car_gripper
-  total_timesteps: 1e6
+  total_timesteps: 2e6
   # total_timesteps: 2.5e5 # finetune

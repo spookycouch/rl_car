@@ -102,7 +102,7 @@ class CarEnv(gym.Env):
         self.__obs_error = np.random.uniform(-0.03, 0.03, 4)
 
         transforms = self.__get_transforms()
-        observation = self._get_observation(transforms)
+        observation = self.__get_observation(transforms)
         return observation, {}
 
     def step(self, action):        
@@ -128,7 +128,7 @@ class CarEnv(gym.Env):
                 time.sleep(1./240.)
 
         transforms = self.__get_transforms()
-        observation = self._get_observation(transforms)
+        observation = self.__get_observation(transforms)
 
         dist_object = float(np.linalg.norm(transforms.gripper_T_object[:2,3]))
         dist_goal = float(np.linalg.norm(transforms.object_T_goal[:2,3]))
@@ -171,7 +171,7 @@ class CarEnv(gym.Env):
             object_T_goal,
         )
 
-    def _get_observation(
+    def __get_observation(
         self,
         transforms: Transforms
     ):
