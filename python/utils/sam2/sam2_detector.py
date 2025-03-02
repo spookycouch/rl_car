@@ -42,22 +42,12 @@ class Sam2Detector:
             out_mask = (out_mask_logits[i] > 0.0).permute(1, 2, 0).cpu().numpy().astype(
                 np.uint8
             )
-            
-            blended = cv2.addWeighted(
-                cv2.cvtColor(frame, cv2.COLOR_BGR2RGB),
-                1,
-                cv2.cvtColor(out_mask * 255, cv2.COLOR_GRAY2BGR),
-                0.5,
-                0
-            )
-            cv2.imshow("blended", blended)
-            cv2.waitKey(1)
 
             com = center_of_mass(out_mask)[:2]
             if not np.any(np.isnan(com)):
-                return com
+                return com, out_mask
 
-        return None
+        return None, None
 
 
 
