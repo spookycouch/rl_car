@@ -6,7 +6,7 @@ import pybullet as p
 import pybullet_data
 import gymnasium as gym
 from scipy.spatial.transform import Rotation
-from urdf.urdf_utils import get_urdf_dir_path
+from rl_car.urdf.urdf_utils import get_urdf_dir_path
 
 def get_homogeneous_transformation_from_pose(position, orientation):
     transform = np.eye(4, dtype=np.float32)

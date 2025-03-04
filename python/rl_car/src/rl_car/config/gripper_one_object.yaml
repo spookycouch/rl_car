@@ -1,9 +1,9 @@
 env:
-  _target_: envs.gripper_one_object.sim.CarEnv
+  _target_: rl_car.envs.gripper_one_object.sim.CarEnv
   real_time: false
 
 env_real:
-  _target_: envs.gripper_one_object.real.RealEnv
+  _target_: rl_car.envs.gripper_one_object.real.RealEnv
   address: ${oc.env:ROBOT_MAC_ADDRESS}
 
 model:

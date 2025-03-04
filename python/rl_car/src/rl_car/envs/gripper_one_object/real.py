@@ -6,8 +6,8 @@ import cv2
 import numpy as np
 import gymnasium as gym
 from scipy.spatial.transform import Rotation
-from utils.camera import OpenCVCameraWrapper, CameraFrame
-from utils.differential_drive_robot import BluetoothLowEnergyRobot, DifferentialDriveRobot
+from rl_car.utils.camera import OpenCVCameraWrapper, CameraFrame
+from rl_car.utils.differential_drive_robot import BluetoothLowEnergyRobot, DifferentialDriveRobot
 
 
 MARKER_SIDE = 0.09
