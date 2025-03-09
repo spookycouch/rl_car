@@ -15,8 +15,8 @@ XOUT_RGB_KEY = "XOUT_RGB_KEY"
 MAXIMUM_Z_MILLIMETRES = 2500
 RGB_SIZE = (712, 400)
 # PREVIEW_SIZE = (1920, 1080)
-PREVIEW_SIZE = (960, 540)
-# PREVIEW_SIZE = (640, 360)
+# PREVIEW_SIZE = (960, 540)
+PREVIEW_SIZE = (640, 360)
 
 class OakDCamera:
     def __init__(
@@ -106,6 +106,56 @@ class OakDCamera:
             np.empty(0)
         )
 
+class OakDRGB:
+    def __init__(
+        self,
+        warm_up_frames: int = 0,
+        fps: int = FPS
+    ):
+        pipeline = dai.Pipeline()
+        self.__device = dai.Device()
+        camRgb = pipeline.create(dai.node.Camera)
+
+        rgbCamSocket = dai.CameraBoardSocket.CAM_A
+        camRgb.setBoardSocket(rgbCamSocket)
+        camRgb.setFps(fps)
+        camRgb.setPreviewSize(PREVIEW_SIZE)
+
+        try:
+            calibData = self.__device.readCalibration2()
+            lensPosition = calibData.getLensPosition(rgbCamSocket)
+            if lensPosition:
+                camRgb.initialControl.setManualFocus(lensPosition)
+            camRgb.initialControl.setAutoExposureLimit(10000)
+        except:
+            raise
+
+        xoutGrp = pipeline.create(dai.node.XLinkOut)
+        xoutGrp.setStreamName("xout")
+        camRgb.preview.link(xoutGrp.input)
+
+        self.__intrinsics_matrix = np.array(calibData.getCameraIntrinsics(rgbCamSocket, resizeHeight=PREVIEW_SIZE[1], resizeWidth=PREVIEW_SIZE[0]))
+
+        self.__device.startPipeline(pipeline)
+        self.__queue = self.__device.getOutputQueue("xout", 1, False)
+        
+        # warm up the camera
+        for _ in range(warm_up_frames):
+            self.get_frame()
+
+    def __del__(self):
+        self.__device.close()
+
+    def get_frame(self) -> CameraFrame:
+        msg = self.__queue.get()
+        frameRgb = msg.getCvFrame().copy()
+
+        return CameraFrame(
+            frameRgb,
+            None,
+            self.__intrinsics_matrix,
+            np.empty(0)
+        )   
 
 if __name__ == "__main__":
     camera = OakDCamera()
