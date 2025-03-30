@@ -88,6 +88,13 @@ class Motor {
     }
 
     void update() {
+      if (this->target_velocity_rad == 0) {
+        pid_controller->SetMode(0);
+        pid_output = 0;
+      } else if (pid_controller->GetMode() == 0) {
+        pid_controller->SetMode(1);
+      }
+
       long delta_position = encoder->read() - prev_encoder_position;
       float delta_position_rad = ((float)delta_position/encoder_cpr) * 2 * M_PI;
       float delta_time_s = (millis() - prev_time_ms) / 1000.0;
@@ -111,11 +118,7 @@ class Motor {
       digitalWrite(gpio_slp, HIGH);
       
       // set pwm output
-      if (this->target_velocity_rad != 0) {
-        analogWrite(gpio_pwm, abs(pid_output));
-      } else {
-        analogWrite(gpio_pwm, 0.0);
-      }
+      analogWrite(gpio_pwm, abs(pid_output));
 
       encoder->write(0);
       prev_encoder_position = encoder->read();

@@ -36,7 +36,18 @@ BLEService* ble_service;
 BLECharacteristic* command_characteristic;
 unsigned long last_request_millis;
 unsigned long timeout_millis = 1000;
+bool ble_connected = false;
 
+class ToycarServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) override {
+        ble_connected = true;
+    }
+
+    void onDisconnect(BLEServer* pServer) override {
+        ble_connected = false;
+        BLEDevice::startAdvertising();
+    }
+};
 
 void setup () {
   left_encoder = new Encoder(LEFT_ENC_A, LEFT_ENC_B);
@@ -72,6 +83,7 @@ void setup () {
 
   BLEDevice::init("toycar");
   ble_server = BLEDevice::createServer();
+  ble_server->setCallbacks(new ToycarServerCallbacks());
   ble_service = ble_server->createService(SERVICE_UUID);
   command_characteristic = ble_service->createCharacteristic(COMMAND_CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_WRITE_NR);
   command_characteristic->setValue("0.0 0.0");
@@ -87,16 +99,19 @@ void setup () {
 void loop () {
   double left_target_velocity_rad = 0.0;
   double right_target_velocity_rad = 0.0;
-  try {
-    std::string command = command_characteristic->getValue().c_str();
-    size_t next_index;
-    left_target_velocity_rad = std::stod(command, &next_index);
-    right_target_velocity_rad = std::stod(command.substr(next_index));
-    left_motor->set_target_velocity(left_target_velocity_rad);
-    right_motor->set_target_velocity(right_target_velocity_rad);
-  } catch(const std::invalid_argument& err) {
-    Serial.printf("Invalid argument: %s, skipping. \n", err.what());
+
+  if (ble_connected) {
+    try {
+      std::string command = command_characteristic->getValue().c_str();
+      size_t next_index;
+      left_target_velocity_rad = std::stod(command, &next_index);
+      right_target_velocity_rad = std::stod(command.substr(next_index));
+    } catch(const std::invalid_argument& err) {
+      Serial.printf("Invalid argument: %s, skipping. \n", err.what());
+    }
   }
+  left_motor->set_target_velocity(left_target_velocity_rad);
+  right_motor->set_target_velocity(right_target_velocity_rad);
 
   left_motor->update();
   right_motor->update();
