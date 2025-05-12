@@ -1,3 +1,4 @@
+import argparse
 from enum import Enum, auto
 import os
 import time
@@ -17,7 +18,7 @@ from gamepad import Gamepad, GamepadConfig, GamepadInput
 ROBOT_MAC_ADDRESS_ENV = "ROBOT_MAC_ADDRESS"
 VELOCITY_SCALE = -3 * 3.142
 
-DATASET_TASK = "Push the object into the green target area."
+DATASET_TASK = "Push the object to the bottom right corner."
 DATASET_FEATURES = {
     "observation.state": {
         "dtype": "float32",
@@ -49,7 +50,7 @@ DATASET_FEATURES = {
             "axes": ["steer", "accelerate", "reverse"],
         },
     },
-    "extras.raw_image": {
+    "extras.teleop_img": {
         "dtype": "image",
         "shape": (3, 360, 640),
         "names": [
@@ -68,7 +69,8 @@ class RecordingStatus(Enum):
     EPISODE_SAVED = "Last episode: SAVED"
     EPISODE_DISCARDED = "Last episode: DISCARDED"
 
-
+WORKSPACE = (50, 50, 575, 300) # x1 y1 x2 y2
+GOAL_AREA = (450,225,150,100) # goal pose
 
 def detect_aruco_pose(
     frame: CameraFrame,
@@ -112,6 +114,12 @@ def detect_aruco_pose(
 
     return x, y, theta
 
+def get_random_pose():
+    return (
+        np.random.randint(WORKSPACE[0], WORKSPACE[2]),
+        np.random.randint(WORKSPACE[1], WORKSPACE[3]),
+        np.random.uniform(0, 2 * np.pi),
+    )
 
 def draw_goal_position(
     frame,
@@ -144,20 +152,54 @@ def draw_pilot_view(
     robot_pose: Tuple[float, float, float],
     recording_status: RecordingStatus,
     total_episodes: int,
-    reset_points: Dict[str, Tuple[int, int]],
+    robot_start_pose,
+    object_start_pose,
 ):
-    pilot_image = frame.copy()
+    def draw_pose(
+        frame,
+        pose: Tuple[int, int, float],
+        colour: Tuple[int, int, int],
+        name: str = "",
+    ):
+        ARROW_LENGTH = 50
+        ARROW_THICKNESS = 2
+        ARROW_TIP_LENGTH = 0.1
 
-    for name, (x, y) in reset_points.items():
+        start_x, start_y, theta = pose
+        end_x, end_y = (
+            int(start_x + ARROW_LENGTH * np.cos(theta)),
+            int(start_y + ARROW_LENGTH * np.sin(theta)),
+        )
+        
         cv2.putText(
-            pilot_image,
+            frame,
             name,
-            (x - 5, y + 5),
+            (start_x - 5, start_y + 5),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
-            (0,0,255),
+            colour,
             2,
         )
+        cv2.arrowedLine(
+            frame,
+            (start_x, start_y),
+            (end_x, end_y),
+            colour,
+            ARROW_THICKNESS,
+            tipLength=ARROW_TIP_LENGTH
+        )
+
+    workspace_overlay = np.zeros_like(frame)
+    
+    cv2.rectangle(
+        workspace_overlay,
+        (WORKSPACE[0], WORKSPACE[1]),
+        (WORKSPACE[2], WORKSPACE[3]),
+        (0,127,0),
+        1,
+    )    
+    draw_pose(workspace_overlay, robot_start_pose, (0,0,255), "R")
+    draw_pose(workspace_overlay, object_start_pose, (255, 255, 0), "Obj")
 
     colour_recording_status = (255,255,255)
     if recording_status == RecordingStatus.RECORDING:
@@ -168,7 +210,7 @@ def draw_pilot_view(
         colour_recording_status = (255,0,0)
         
     cv2.putText(
-        pilot_image,
+        workspace_overlay,
         recording_status.value,
         (10,20),
         cv2.FONT_HERSHEY_SIMPLEX,
@@ -178,7 +220,7 @@ def draw_pilot_view(
     )
 
     cv2.putText(
-        pilot_image,
+        workspace_overlay,
         f"episodes: {total_episodes}",
         (10,40),
         cv2.FONT_HERSHEY_SIMPLEX,
@@ -189,7 +231,7 @@ def draw_pilot_view(
 
     x, y, theta = robot_pose
     cv2.putText(
-        pilot_image,
+        workspace_overlay,
         f"x: {x:.2f} y: {y:.2f} theta: {theta:.2f}",
         (10,60),
         cv2.FONT_HERSHEY_SIMPLEX,
@@ -198,17 +240,24 @@ def draw_pilot_view(
         1,
     )
 
+    pilot_image = cv2.addWeighted(
+        frame,
+        1,
+        workspace_overlay,
+        0.5,
+        0,
+    )    
     return pilot_image
 
 def get_lerobot_frame(
     robot_pose,
-    image,
+    image_teleop,
     image_raw,
     action,
     teleop_input: GamepadInput,
     
 ):
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_teleop_rgb = cv2.cvtColor(image_teleop, cv2.COLOR_BGR2RGB)
     image_raw_rgb = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
     teleop_input_array = np.array(
         [
@@ -221,14 +270,14 @@ def get_lerobot_frame(
 
     return {
         "observation.state": robot_pose,
-        "observation.image": image_rgb,
+        "observation.image": image_raw_rgb,
         "action": action,
         "task": DATASET_TASK,
         "extras.teleop_input": teleop_input_array, 
-        "extras.raw_image": image_raw_rgb, 
+        "extras.teleop_img": image_teleop_rgb, 
     }
 
-def main():
+def main(args):
     if ROBOT_MAC_ADDRESS_ENV not in os.environ:
         raise RuntimeError(f"{ROBOT_MAC_ADDRESS_ENV} not found in env.")
     address = os.environ[ROBOT_MAC_ADDRESS_ENV]
@@ -242,26 +291,23 @@ def main():
     camera = OakDRGB(fps=fps)
 
 
-    bbox = (425,120,60,60) # goal pose
-    reset_points = {
-        "R": (64, 168),
-        "1": (208, 132),
-        "2": (204, 231),
-        "3": (305, 74),
-        "4": (310, 150),
-        "5": (308, 232),
-    }
     recording_status: RecordingStatus = RecordingStatus.NOT_STARTED
 
     total_episodes = 0
-    dataset = LeRobotDataset.create(
-        repo_id=DATASET_REPO_ID,
-        fps=fps,
-        robot_type=DATASET_ROBOT_TYPE,
-        features=DATASET_FEATURES,
-        image_writer_threads=4,
-    )
 
+    dataset = None
+    if args.collect:
+        dataset = LeRobotDataset.create(
+            repo_id=DATASET_REPO_ID,
+            fps=fps,
+            robot_type=DATASET_ROBOT_TYPE,
+            features=DATASET_FEATURES,
+            image_writer_threads=4,
+        )
+
+    robot_start_pose = get_random_pose()
+    object_start_pose = get_random_pose()
+    
     while 1:
         step_start_time = time.perf_counter()
 
@@ -271,14 +317,15 @@ def main():
 
         image_with_goal = draw_goal_position(
             image,
-            bbox,
+            GOAL_AREA,
         )
         pilot_image = draw_pilot_view(
             image_with_goal,
             robot_pose,
             recording_status,
             total_episodes,
-            reset_points,
+            robot_start_pose,
+            object_start_pose,
         )
         cv2.imshow("raw", image)
         cv2.imshow("goal", image_with_goal)
@@ -309,18 +356,22 @@ def main():
         elif recording_status == RecordingStatus.RECORDING and teleop_input.button_b:
             recording_status = RecordingStatus.EPISODE_SAVED
             total_episodes += 1
+            robot_start_pose = get_random_pose()
+            object_start_pose = get_random_pose()
             if dataset is not None:
                 dataset.save_episode()
         # end recording and discard
         elif recording_status == RecordingStatus.RECORDING and teleop_input.button_y:
             recording_status = RecordingStatus.EPISODE_DISCARDED
+            robot_start_pose = get_random_pose()
+            object_start_pose = get_random_pose()
             if dataset is not None:
                 dataset.clear_episode_buffer()
         
         if recording_status == RecordingStatus.RECORDING:
             dataset_frame = get_lerobot_frame(
                 robot_pose=np.array(robot_pose, dtype=np.float32),
-                image=image_with_goal,
+                image_teleop=image_with_goal,
                 image_raw=image,
                 action=np.array([left_target_velocity_rad, right_target_velocity_rad], dtype=np.float32),
                 teleop_input = teleop_input
@@ -334,4 +385,8 @@ def main():
         time.sleep(time_to_sleep)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--collect', action='store_true', help='Enable data collection')
+    
+    args = parser.parse_args()
+    main(args)
