@@ -50,7 +50,7 @@ DATASET_FEATURES = {
             "axes": ["steer", "accelerate", "reverse"],
         },
     },
-    "extras.teleop_img": {
+    "extras.raw_img": {
         "dtype": "image",
         "shape": (3, 360, 640),
         "names": [
@@ -60,7 +60,7 @@ DATASET_FEATURES = {
         ],
     },
 }
-DATASET_REPO_ID = "differential_drive_push"
+DATASET_REPO_ID = "differential_drive_push_soy"
 DATASET_ROBOT_TYPE = "differential drive"
 
 class RecordingStatus(Enum):
@@ -270,11 +270,11 @@ def get_lerobot_frame(
 
     return {
         "observation.state": robot_pose,
-        "observation.image": image_raw_rgb,
+        "observation.image": image_teleop_rgb,
         "action": action,
         "task": DATASET_TASK,
         "extras.teleop_input": teleop_input_array, 
-        "extras.teleop_img": image_teleop_rgb, 
+        "extras.raw_img": image_raw_rgb, 
     }
 
 def main(args):
@@ -297,13 +297,19 @@ def main(args):
 
     dataset = None
     if args.collect:
-        dataset = LeRobotDataset.create(
-            repo_id=DATASET_REPO_ID,
-            fps=fps,
-            robot_type=DATASET_ROBOT_TYPE,
-            features=DATASET_FEATURES,
-            image_writer_threads=4,
-        )
+        try:
+            dataset = LeRobotDataset.create(
+                repo_id=DATASET_REPO_ID,
+                fps=fps,
+                robot_type=DATASET_ROBOT_TYPE,
+                features=DATASET_FEATURES,
+                image_writer_threads=4,
+            )
+        except FileExistsError:
+            dataset = LeRobotDataset(
+                repo_id=DATASET_REPO_ID,
+            )
+            dataset.start_image_writer()
 
     robot_start_pose = get_random_pose()
     object_start_pose = get_random_pose()
