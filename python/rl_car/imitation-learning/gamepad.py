@@ -18,6 +18,7 @@ class GamepadConfig:
 class GamepadInput:
     button_a: bool
     button_b: bool
+    button_x: bool
     button_y: bool
     left_trigger: float
     right_trigger: float
@@ -46,6 +47,7 @@ class Gamepad:
         button_a = self.__joystick.get_button(0)
         button_b = self.__joystick.get_button(1)
         button_y = self.__joystick.get_button(2)
+        button_x = self.__joystick.get_button(3)
         left_trigger = (self.__joystick.get_axis(2) + 1)/2 # normalised 0-1
         right_trigger = (self.__joystick.get_axis(5) + 1)/2 # normalised 0-1
         left_stick_x_axis = self.__joystick.get_axis(0)
@@ -66,6 +68,7 @@ class Gamepad:
         return GamepadInput(
             button_a,
             button_b,
+            button_x,
             button_y,
             left_trigger,
             right_trigger,

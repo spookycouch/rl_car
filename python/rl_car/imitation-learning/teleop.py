@@ -3,8 +3,10 @@ from enum import Enum, auto
 import os
 import time
 from typing import Dict, Tuple
+from pathlib import Path
 
 import cv2
+import torch
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -12,6 +14,7 @@ from rl_car.utils.differential_drive_robot import BluetoothLowEnergyRobot, Diffe
 from rl_car.utils.oak_d_camera import OakDRGB, CameraFrame
 
 from lerobot.common.datasets.lerobot_dataset import CODEBASE_VERSION, LeRobotDataset
+from lerobot.common.policies.act.modeling_act import ACTPolicy
 
 from gamepad import Gamepad, GamepadConfig, GamepadInput
 
@@ -66,6 +69,7 @@ DATASET_ROBOT_TYPE = "differential drive"
 class RecordingStatus(Enum):
     NOT_STARTED = "Recording not started"
     RECORDING = "REC"
+    MODEL_INFERENCE = "MODEL_INFERENCE"
     EPISODE_SAVED = "Last episode: SAVED"
     EPISODE_DISCARDED = "Last episode: DISCARDED"
 
@@ -204,6 +208,8 @@ def draw_pilot_view(
     colour_recording_status = (255,255,255)
     if recording_status == RecordingStatus.RECORDING:
         colour_recording_status = (0,0,255)
+    elif recording_status == RecordingStatus.MODEL_INFERENCE:
+        colour_recording_status = (255,0,255)
     elif recording_status == RecordingStatus.EPISODE_SAVED:
         colour_recording_status = (0,255,0)
     elif recording_status == RecordingStatus.EPISODE_DISCARDED:
@@ -277,6 +283,46 @@ def get_lerobot_frame(
         "extras.raw_img": image_raw_rgb, 
     }
 
+def create_obs(
+    robot_pose,
+    image,
+    image_raw,
+    
+):
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_raw_rgb = cv2.cvtColor(image_raw, cv2.COLOR_BGR2RGB)
+
+    state = torch.from_numpy(np.array(robot_pose))
+    image = torch.from_numpy(image_rgb)
+    raw_image = torch.from_numpy(image_raw_rgb)
+
+    # Convert to float32 with image from channel first in [0,255]
+    # to channel last in [0,1]
+    state = state.to(torch.float32)
+    image = image.to(torch.float32) / 255
+    image = image.permute(2, 0, 1)
+    raw_image = raw_image.to(torch.float32) / 255
+    raw_image = raw_image.permute(2, 0, 1)
+
+
+    # Send data tensors from CPU to GPU
+    state = state.to("cuda", non_blocking=True)
+    image = image.to("cuda", non_blocking=True)
+    raw_image = raw_image.to("cuda", non_blocking=True)
+
+    # Add extra (empty) batch dimension, required to forward the policy
+    state = state.unsqueeze(0)
+    image = image.unsqueeze(0)
+    raw_image = raw_image.unsqueeze(0)
+
+
+    return {
+        "observation.state": state,
+        "observation.image": image,
+        "extras.raw_img": raw_image, 
+    }
+
+
 def main(args):
     if ROBOT_MAC_ADDRESS_ENV not in os.environ:
         raise RuntimeError(f"{ROBOT_MAC_ADDRESS_ENV} not found in env.")
@@ -294,6 +340,13 @@ def main(args):
     recording_status: RecordingStatus = RecordingStatus.NOT_STARTED
 
     total_episodes = 0
+
+    policy = None
+    if args.policy:
+        pretrained_policy_path = Path("checkpoints/2025-05-18/20250518_differential_drive_push_soy/checkpoints/0950000/pretrained_model")
+        policy = ACTPolicy.from_pretrained(pretrained_policy_path, map_location="cuda")
+        policy.config.n_action_steps = 5
+
 
     dataset = None
     if args.collect:
@@ -340,24 +393,11 @@ def main(args):
 
         teleop_input = gamepad.get_input()
 
-        # convert user input to motor velocities.
-        # note left and right are flipped since the gripper is on the back of the robot.
-        (
-            right_target_velocity_rad,
-            left_target_velocity_rad,
-        ) = gamepad.convert_user_input_to_velocities(teleop_input)
-
-        left_target_velocity_rad *= VELOCITY_SCALE
-        right_target_velocity_rad *= VELOCITY_SCALE
-
-        robot.execute_command(DifferentialDriveRobot.Command(
-            left_target_velocity_rad,
-            right_target_velocity_rad,
-        ))
-
         # start recording
         if recording_status != RecordingStatus.RECORDING and teleop_input.button_a:
             recording_status = RecordingStatus.RECORDING
+        elif recording_status != RecordingStatus.RECORDING and teleop_input.button_x and policy:
+            recording_status = RecordingStatus.MODEL_INFERENCE
         # end recording and save
         elif recording_status == RecordingStatus.RECORDING and teleop_input.button_b:
             recording_status = RecordingStatus.EPISODE_SAVED
@@ -374,6 +414,35 @@ def main(args):
             if dataset is not None:
                 dataset.clear_episode_buffer()
         
+
+        if policy and recording_status == RecordingStatus.MODEL_INFERENCE:
+            with torch.inference_mode():
+                observation = create_obs(
+                    robot_pose,
+                    image_with_goal,
+                    image,
+                )
+                action = policy.select_action(observation)
+                numpy_action = action.squeeze(0).to("cpu").numpy()
+                (
+                    left_target_velocity_rad,
+                    right_target_velocity_rad,
+                ) = numpy_action
+        else:
+            # convert user input to motor velocities.
+            # note left and right are flipped since the gripper is on the back of the robot.
+            (
+                right_target_velocity_rad,
+                left_target_velocity_rad,
+            ) = gamepad.convert_user_input_to_velocities(teleop_input)
+            left_target_velocity_rad *= VELOCITY_SCALE
+            right_target_velocity_rad *= VELOCITY_SCALE
+
+        robot.execute_command(DifferentialDriveRobot.Command(
+            left_target_velocity_rad,
+            right_target_velocity_rad,
+        ))
+
         if recording_status == RecordingStatus.RECORDING:
             dataset_frame = get_lerobot_frame(
                 robot_pose=np.array(robot_pose, dtype=np.float32),
@@ -393,6 +462,7 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--collect', action='store_true', help='Enable data collection')
+    parser.add_argument('--policy', action='store_true', help='Enable model inference')
     
     args = parser.parse_args()
     main(args)
