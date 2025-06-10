@@ -15,7 +15,7 @@ from rl_car.utils.oak_d_camera import OakDRGB, CameraFrame
 
 from lerobot.common.datasets.lerobot_dataset import CODEBASE_VERSION, LeRobotDataset
 
-from teleop import detect_aruco_pose, draw_goal_position, draw_pilot_view
+from teleop import detect_aruco_pose, draw_goal_position, draw_pilot_view, GOAL_AREA, get_random_pose
 from lerobot.common.policies.act.modeling_act import ACTPolicy
 
 from gamepad import Gamepad, GamepadConfig, GamepadInput
@@ -112,7 +112,7 @@ def create_obs(
     return {
         "observation.state": state,
         "observation.image": image,
-        "extras.raw_image": raw_image, 
+        "extras.raw_img": raw_image, 
     }
 
 def main():
@@ -128,24 +128,22 @@ def main():
     gamepad = Gamepad(GamepadConfig())
     camera = OakDRGB(fps=fps)
 
-    pretrained_policy_path = Path("checkpoints/2025-03-09/22-36-18_act/checkpoints/200000/pretrained_model")
+    # pretrained_policy_path = Path("checkpoints/2025-03-09/22-36-18_act/checkpoints/200000/pretrained_model")
+    # pretrained_policy_path = Path("checkpoints/2025-05-18/20250518_differential_drive_push_soy/checkpoints/400000/pretrained_model")
+    pretrained_policy_path = Path("checkpoints/2025-05-18/20250518_differential_drive_push_soy/checkpoints/0950000/pretrained_model")
+    # pretrained_policy_path = Path("checkpoints/2025-05-12/20250512_differential_drive_push_soy/checkpoints/010000/pretrained_model")
     policy = ACTPolicy.from_pretrained(pretrained_policy_path, map_location="cuda")
+    policy.config.n_action_steps = 5
     print(policy.config.input_features)
     print(policy.config.output_features)
 
 
-    bbox = (425,120,60,60) # goal pose
-    reset_points = {
-        "R": (64, 168),
-        "1": (208, 132),
-        "2": (204, 231),
-        "3": (305, 74),
-        "4": (310, 150),
-        "5": (308, 232),
-    }
     recording_status: RecordingStatus = RecordingStatus.NOT_STARTED
 
     total_episodes = 0
+
+    robot_start_pose = get_random_pose()
+    object_start_pose = get_random_pose()
 
     execute = False
     while 1:
@@ -157,14 +155,15 @@ def main():
 
         image_with_goal = draw_goal_position(
             image,
-            bbox,
+            GOAL_AREA,
         )
         pilot_image = draw_pilot_view(
             image_with_goal,
             robot_pose,
             recording_status,
             total_episodes,
-            reset_points,
+            robot_start_pose,
+            object_start_pose,
         )
         cv2.imshow("raw", image)
         cv2.imshow("goal", image_with_goal)
@@ -180,9 +179,11 @@ def main():
         teleop_input = gamepad.get_input()
         if teleop_input.button_a:
             execute = True
-        elif teleop_input.button_b:
             policy.reset()
+        elif teleop_input.button_b:
             execute = False
+            robot_start_pose = get_random_pose()
+            object_start_pose = get_random_pose()
 
         if execute:
             with torch.inference_mode():
