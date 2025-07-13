@@ -7,6 +7,7 @@ from hydra import compose, initialize
 from hydra.utils import instantiate
 from omegaconf import DictConfig
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.vec_env import SubprocVecEnv
 
 MODELS_SAVE_DIR = "./models"
 
@@ -26,9 +27,20 @@ def get_model_save_path(
 
 def main(cfg: DictConfig):
     training_start_time = datetime.now()
-    model: BaseAlgorithm = instantiate(cfg.model)
+
+    def make_env():
+        return instantiate(cfg.env)
+    
+    num_envs = 1
+    if num_envs > 1:
+        env = SubprocVecEnv([make_env for _ in range(num_envs)])
+    else:
+        env = make_env()
+    
+    model: BaseAlgorithm = instantiate(cfg.model, env=env)
     training_params: TrainingParameters = instantiate(cfg.training_parameters)
     
+
     model.learn(total_timesteps=training_params.total_timesteps)
 
     model_save_path = get_model_save_path(training_params.save_prefix, training_start_time)

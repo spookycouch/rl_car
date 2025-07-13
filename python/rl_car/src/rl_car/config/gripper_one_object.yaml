@@ -7,12 +7,16 @@ env_real:
   address: ${oc.env:ROBOT_MAC_ADDRESS}
 
 model:
-  _target_: stable_baselines3.SAC
-  policy: MlpPolicy
+  _target_: stable_baselines3.PPO
+  policy: CnnPolicy
+  # buffer_size: 100000
+  n_steps: 32768
+  batch_size: 2048
+  n_epochs: 10
   verbose: true
   env: ${env}
 
 training_parameters:
   _target_: train.TrainingParameters
   save_prefix: ppo_car_gripper
-  total_timesteps: 1e6
+  total_timesteps: 1e7
