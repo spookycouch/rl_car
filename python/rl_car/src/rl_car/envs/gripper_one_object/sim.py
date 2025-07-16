@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import os
 import time
 import numpy as np
+import cv2
 import pybullet as p
 import pybullet_data
 import gymnasium as gym
@@ -21,10 +22,30 @@ def create_sphere():
     visual_id = p.createVisualShape(
         shapeType=p.GEOM_SPHERE,
         radius = 0.025,
-        rgbaColor=(1,0,0,1),
+        rgbaColor=(0,1,0,1),
     )
     multibody_id = p.createMultiBody(baseVisualShapeIndex=visual_id)
     return multibody_id
+
+def create_box(half_extents, position, rgba_color, mass=0):
+    collision_shape_id = p.createCollisionShape(
+        p.GEOM_BOX,
+        halfExtents=half_extents
+    )
+    visual_shape_id = p.createVisualShape(
+        p.GEOM_BOX,
+        halfExtents=half_extents,
+        rgbaColor=rgba_color
+    )
+    box_id = p.createMultiBody(
+        baseMass=mass,
+        baseCollisionShapeIndex=collision_shape_id,
+        baseVisualShapeIndex=visual_shape_id,
+        basePosition=position,
+        baseOrientation=[0, 0, 0, 1],
+    )
+    return box_id
+
 
 def get_new_distant_point(points, low, high, min_distance=0.15, max_tries=10):
     for _ in range(max_tries):
@@ -56,11 +77,11 @@ class CarEnv(gym.Env):
         self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(4,), dtype=np.float32)
         self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(2,), dtype=np.float32)
 
-        p.connect(p.GUI)
+        p.connect(p.DIRECT)
 
         p.loadURDF(os.path.join(pybullet_data.getDataPath(), "plane.urdf"))
         self._car = p.loadURDF(os.path.join(get_urdf_dir_path(), "car_gripper.urdf"), basePosition=(0,0,0.05))
-        self._object = p.loadURDF(os.path.join(get_urdf_dir_path(), "kp.urdf"), basePosition=(0.5, 0.5, 0.05))
+        self._object = create_box([0.025,0.025,0.025], [0.5,0.5,0.05], [1,0,0,1], mass=0.1)
         self._goal = create_sphere()
 
         self.__obs_error = np.zeros(4)
@@ -103,13 +124,16 @@ class CarEnv(gym.Env):
 
         transforms = self.__get_transforms()
         observation = self.__get_observation(transforms)
-        return observation, {}
+        info = {}
+        info["image"] = self.render()
+        
+        return observation, info
 
     def step(self, action):        
-        target_velocities = action*np.pi
+        target_velocities = action*np.pi*2
         target_velocities = target_velocities * (abs(target_velocities) > 0.5)
 
-        for _ in range(24):
+        for _ in range(8):
             p.setJointMotorControl2(
                 self._car,
                 0,
@@ -136,13 +160,32 @@ class CarEnv(gym.Env):
         done = dist_goal < 0.05
 
         truncated = False
-        if self.__num_steps > 300: # 30s
+        if self.__num_steps > 450: # 15s
             p.resetBasePositionAndOrientation(self._car, list(np.random.uniform(0, 1, (2))) + [0.05], (0,0,0,1))
             truncated = True
         info = {}
+        info["image"] = self.render()
 
         self.__num_steps += 1
         return observation, reward, done, truncated, info
+
+    def render(self):
+        view_matrix = p.computeViewMatrix(
+            (0.5,0.5,1),
+            (0.5,0.5,0),
+            (0,1,0)
+        )
+        projection_matrix = p.computeProjectionMatrixFOV(
+            fov=60,
+            aspect=1,
+            nearVal=0,
+            farVal=1
+        )
+        _, _, img, _, _ = p.getCameraImage(64,64,viewMatrix=view_matrix, projectionMatrix=projection_matrix)
+        if self.__num_steps % 10 == 0:
+            cv2.imshow("img", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.waitKey(1)
+        return img[:,:,:3]
 
 
     def __get_transforms(self):

@@ -7,6 +7,9 @@
   <material name="darkgrey">
     <color rgba="0.25 0.25 0.25 1"/>
   </material>
+  <material name="lightgrey">
+    <color rgba="0.7 0.7 0.7 1"/>
+  </material>
 
   <link concave="yes" name="base_link">
     <visual>
@@ -21,7 +24,7 @@
       </geometry>
     </collision>
     <inertial>
-      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <origin rpy="0 0 0" xyz="0 -0.05 0"/>
       <mass value="1.0"/>
       <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
     </inertial>
@@ -125,13 +128,13 @@
   <link name="attached_load">
     <visual>
       <geometry>
-        <box size="0.05 0.075 0.025"/>
+        <box size="0.075 0.05 0.025"/>
       </geometry>
       <material name="darkgrey"/>
     </visual>
     <collision>
       <geometry>
-        <box size="0.05 0.075 0.025"/>
+        <box size="0.075 0.05 0.025"/>
       </geometry>
     </collision>
     <inertial>
@@ -143,7 +146,7 @@
   <joint name="attached_load_joint" type="fixed">
     <parent link="base_link"/>
     <child link="attached_load"/>
-    <origin rpy="0 0 0" xyz="0 -0.025 0.0125"/>
+    <origin rpy="0 0 0" xyz="0 -0.015 0.0125"/>
   </joint>
 
   <link concave="yes" name="gripper">
@@ -151,7 +154,7 @@
       <geometry>
         <mesh filename="gripper.stl"/>
       </geometry>
-      <material name="pink"/>
+      <material name="lightgrey"/>
     </visual>
     <collision concave="yes">
       <geometry>
@@ -167,7 +170,7 @@
   <joint name="gripper_joint" type="fixed">
     <parent link="base_link"/>
     <child link="gripper"/>
-    <origin rpy="0 0 3.142" xyz="0 -0.085 0.005"/>
+    <origin rpy="0 0 3.142" xyz="0 -0.1 0.005"/>
   </joint>
 
 </robot>
