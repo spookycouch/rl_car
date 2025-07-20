@@ -8,7 +8,7 @@ from datetime import timedelta
 
 from .camera import CameraFrame
 
-FPS = 20
+FPS = 30
 MONO_RESOLUTION = dai.MonoCameraProperties.SensorResolution.THE_400_P
 XOUT_DEPTH_KEY = "XOUT_DEPTH_KEY"
 XOUT_RGB_KEY = "XOUT_RGB_KEY"
@@ -16,7 +16,8 @@ MAXIMUM_Z_MILLIMETRES = 2500
 RGB_SIZE = (712, 400)
 # PREVIEW_SIZE = (1920, 1080)
 # PREVIEW_SIZE = (960, 540)
-PREVIEW_SIZE = (640, 360)
+# PREVIEW_SIZE = (640, 360)
+PREVIEW_SIZE = (224, 224)
 
 class OakDCamera:
     def __init__(
@@ -126,7 +127,7 @@ class OakDRGB:
             lensPosition = calibData.getLensPosition(rgbCamSocket)
             if lensPosition:
                 camRgb.initialControl.setManualFocus(lensPosition)
-            camRgb.initialControl.setAutoExposureLimit(10000)
+            camRgb.initialControl.setAutoExposureLimit(20000)
         except:
             raise
 

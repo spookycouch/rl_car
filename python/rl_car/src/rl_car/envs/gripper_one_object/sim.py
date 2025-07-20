@@ -8,6 +8,33 @@ import pybullet_data
 import gymnasium as gym
 from scipy.spatial.transform import Rotation
 from rl_car.urdf.urdf_utils import get_urdf_dir_path
+import glob
+import random
+
+import albumentations as A
+
+augment = A.Compose([
+    A.RandomCrop(height=100, width=100, p=1.0),
+    A.Rotate(limit=360, border_mode=cv2.BORDER_REFLECT),
+    A.RandomBrightnessContrast(p=0.5),
+    A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=5, p=0.3),
+    A.RandomGamma(p=0.3),
+    A.MotionBlur(blur_limit=5, p=0.2),
+    A.RandomScale(scale_limit=0.2, p=0.5),
+    A.Perspective(scale=(0.05, 0.1), p=0.3),
+    A.Resize(64, 64, interpolation=cv2.INTER_AREA)
+])
+
+car_augment = A.Compose([
+    A.RandomBrightnessContrast(brightness_limit=(-0.25, 0), contrast_limit=0, p=1.0),
+    A.RandomBrightnessContrast(p=0.5),
+    A.HueSaturationValue(hue_shift_limit=5, sat_shift_limit=10, val_shift_limit=5, p=0.3),
+    A.RandomGamma(p=0.3),
+])
+
+textures = [cv2.imread(f) for f in glob.glob('/home/jeff/learning/toycar/textures/*.jpg')]
+textures = [cv2.resize(img, (200,200), interpolation=cv2.INTER_AREA) for img in textures]
+textures = [cv2.cvtColor(img, cv2.COLOR_BGR2RGB) for img in textures]
 
 def get_homogeneous_transformation_from_pose(position, orientation):
     transform = np.eye(4, dtype=np.float32)
@@ -85,6 +112,7 @@ class CarEnv(gym.Env):
         self._goal = create_sphere()
 
         self.__obs_error = np.zeros(4)
+        self.__camera_position = np.array([0.5,0.5,1])
         self.reset()
 
         p.setGravity(0, 0, -10)
@@ -98,8 +126,8 @@ class CarEnv(gym.Env):
         
         object_position_xy = get_new_distant_point(
             points=[car_position_xy],
-            low=0,
-            high=1,
+            low=0.05,
+            high=0.95,
         )
         object_position = list(object_position_xy) + [0.05]
         p.resetBasePositionAndOrientation(
@@ -110,8 +138,8 @@ class CarEnv(gym.Env):
 
         goal_position_xy = get_new_distant_point(
             points=[car_position_xy, object_position_xy],
-            low=0,
-            high=1,
+            low=0.05,
+            high=0.95,
         )
         goal_position = list(goal_position_xy) + [0.025]
         p.resetBasePositionAndOrientation(
@@ -121,6 +149,13 @@ class CarEnv(gym.Env):
         )
 
         self.__obs_error = np.random.uniform(-0.03, 0.03, 4)
+        self.__camera_position = np.array([0.5,0.5,1]) + np.array([
+            # np.random.uniform(-0.05,0.05),
+            # np.random.uniform(-0.05,0.05),
+            0,
+            0,
+            np.random.uniform(-0.2, 0),
+        ])
 
         transforms = self.__get_transforms()
         observation = self.__get_observation(transforms)
@@ -171,7 +206,7 @@ class CarEnv(gym.Env):
 
     def render(self):
         view_matrix = p.computeViewMatrix(
-            (0.5,0.5,1),
+            self.__camera_position,
             (0.5,0.5,0),
             (0,1,0)
         )
@@ -179,13 +214,23 @@ class CarEnv(gym.Env):
             fov=60,
             aspect=1,
             nearVal=0,
-            farVal=1
+            farVal=2
         )
-        _, _, img, _, _ = p.getCameraImage(64,64,viewMatrix=view_matrix, projectionMatrix=projection_matrix)
+        _, _, img, _, mask = p.getCameraImage(64,64,viewMatrix=view_matrix, projectionMatrix=projection_matrix)
+
+        img = img[:,:,:3]
+        bg_texture = random.sample(textures,1)[0]
+        bg_mask = mask == 0
+
+        img = car_augment(image=img)['image']
+        bg_texture = augment(image=bg_texture)['image']
+        img = np.where(bg_mask[:,:,None], bg_texture, img)
+
         if self.__num_steps % 10 == 0:
             cv2.imshow("img", cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.imshow("bg_mask", bg_mask.astype(np.float32))
             cv2.waitKey(1)
-        return img[:,:,:3]
+        return img
 
 
     def __get_transforms(self):
