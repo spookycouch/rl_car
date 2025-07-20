@@ -4,7 +4,8 @@
 #include <Encoder.h>
 #include <stdexcept>
 #include "motor.h"
- 
+#include "esp_gap_ble_api.h"
+
 #define LEFT_ENC_A 5
 #define LEFT_ENC_B 6
 #define LEFT_PWM 11
@@ -39,8 +40,17 @@ unsigned long timeout_millis = 1000;
 bool ble_connected = false;
 
 class ToycarServerCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) override {
+    void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *params) override {
         ble_connected = true;
+
+        esp_ble_conn_update_params_t conn_params = {};
+        memcpy(conn_params.bda, params->connect.remote_bda, sizeof(conn_params.bda));
+        conn_params.min_int = 16;
+        conn_params.max_int = 16;
+        conn_params.latency = 0;
+        conn_params.timeout = 200;
+        esp_ble_gap_update_conn_params(&conn_params);
+
     }
 
     void onDisconnect(BLEServer* pServer) override {
