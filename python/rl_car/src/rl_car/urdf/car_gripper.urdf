@@ -2,7 +2,7 @@
 <robot name="romi">
 
   <material name="pink">
-    <color rgba="1 0.5 0.8 1"/>
+    <color rgba="1 0.4 0.7 1"/>
   </material>
   <material name="darkgrey">
     <color rgba="0.25 0.25 0.25 1"/>
@@ -149,12 +149,36 @@
     <origin rpy="0 0 0" xyz="0 -0.015 0.0125"/>
   </joint>
 
+  <link name="roof_link">
+    <visual>
+      <geometry>
+        <mesh filename="roof.stl"/>
+      </geometry>
+      <material name="pink"/>
+    </visual>
+    <collision>
+      <geometry>
+        <mesh filename="roof.stl"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.1"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+  <joint name="roof_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="roof_link"/>
+    <origin rpy="0 0 0" xyz="0 0 0.045"/>
+  </joint>
+
   <link concave="yes" name="gripper">
     <visual>
       <geometry>
         <mesh filename="gripper.stl"/>
       </geometry>
-      <material name="lightgrey"/>
+      <material name="pink"/>
     </visual>
     <collision concave="yes">
       <geometry>
